@@ -1,17 +1,22 @@
 import * as XLSX from "xlsx";
 import type { SampleProductOption } from "@/lib/sample-data";
 
-type ParsedProductCandidate = SampleProductOption & {
+export type ParsedProductCandidate = SampleProductOption & {
   productCode?: string;
+  insuranceCode?: string;
+  sourceFileName: string;
+  sheetName: string;
 };
 
 type ColumnMap = {
   productCode: number;
+  insuranceCode: number;
   productName: number;
   saleDate: number;
 };
 
 const PRODUCT_CODE_HEADERS = ["상품코드", "보험코드", "코드", "상품 코드"];
+const INSURANCE_CODE_HEADERS = ["보험코드", "보험 코드"];
 const PRODUCT_NAME_HEADERS = ["상품명", "특약명", "상품명칭", "특약"];
 const SALE_DATE_HEADERS = ["판매일자", "판매일", "판매 시작일", "시행일자"];
 
@@ -92,6 +97,9 @@ function findColumnMap(rows: string[][]): { rowIndex: number; columns: ColumnMap
     const productCodeIndex = row.findIndex((cell) =>
       PRODUCT_CODE_HEADERS.some((header) => cell.includes(header))
     );
+    const insuranceCodeIndex = row.findIndex((cell) =>
+      INSURANCE_CODE_HEADERS.some((header) => cell.includes(header))
+    );
     const productNameIndex = row.findIndex((cell) =>
       PRODUCT_NAME_HEADERS.some((header) => cell.includes(header))
     );
@@ -104,6 +112,7 @@ function findColumnMap(rows: string[][]): { rowIndex: number; columns: ColumnMap
         rowIndex,
         columns: {
           productCode: productCodeIndex,
+          insuranceCode: insuranceCodeIndex,
           productName: productNameIndex,
           saleDate: saleDateIndex
         }
@@ -136,11 +145,15 @@ function dedupeCandidates(candidates: ParsedProductCandidate[]) {
   return result;
 }
 
-function buildCandidateSummary(candidate: ParsedProductCandidate, sheetName: string) {
+function buildCandidateSummary(
+  candidate: Pick<ParsedProductCandidate, "productCode" | "insuranceCode" | "saleDate">,
+  sheetName: string
+) {
   const saleDateText = candidate.saleDate ? `판매일자 ${candidate.saleDate}` : "판매일자 미기재";
   const codeText = candidate.productCode ? `상품코드 ${candidate.productCode}` : sheetName;
+  const insuranceText = candidate.insuranceCode ? `보험코드 ${candidate.insuranceCode}` : "";
 
-  return `${codeText} 기준 / ${saleDateText}`;
+  return `${codeText}${insuranceText ? ` / ${insuranceText}` : ""} 기준 / ${saleDateText}`;
 }
 
 async function readWorkbookRows(file: File) {
@@ -195,6 +208,8 @@ export async function extractProductCandidatesFromFiles(files: File[]) {
 
         const productCode =
           columns.productCode >= 0 ? normalizeText(row[columns.productCode]) : "";
+        const insuranceCode =
+          columns.insuranceCode >= 0 ? normalizeText(row[columns.insuranceCode]) : "";
         const productName = normalizeText(row[columns.productName]) || stripExtension(file.name);
         const saleDate =
           columns.saleDate >= 0 ? normalizeSaleDate(row[columns.saleDate]) : "";
@@ -206,13 +221,15 @@ export async function extractProductCandidatesFromFiles(files: File[]) {
         candidates.push({
           id: sanitizeId(`${file.name}-${worksheet.name}-${index}-${productCode || productName}`),
           productCode: productCode || undefined,
+          insuranceCode: insuranceCode || undefined,
           productName,
           saleDate: saleDate || "미기재",
+          sourceFileName: file.name,
+          sheetName: worksheet.name,
           summary: buildCandidateSummary(
             {
-              id: "",
               productCode: productCode || undefined,
-              productName,
+              insuranceCode: insuranceCode || undefined,
               saleDate: saleDate || ""
             },
             worksheet.name

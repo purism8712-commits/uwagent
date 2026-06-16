@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { DraftRequest } from "@/lib/draft-builder";
+import type { ParsedProductCandidate } from "@/lib/product-candidate-parser";
 
 export type MasterWorkbookSnapshot = {
   uploadedFiles: string[];
@@ -15,6 +16,20 @@ export type MasterWorkbookStore = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function normalizeMasterProducts(value: unknown): ParsedProductCandidate[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((item): item is ParsedProductCandidate => {
+    if (!isRecord(item)) {
+      return false;
+    }
+
+    return typeof item.productName === "string" && typeof item.sourceFileName === "string";
+  });
 }
 
 function normalizeSnapshot(value: unknown): MasterWorkbookSnapshot | null {
@@ -33,7 +48,7 @@ function normalizeSnapshot(value: unknown): MasterWorkbookSnapshot | null {
 
   return {
     uploadedFiles,
-    request: {
+      request: {
       fileName: typeof request.fileName === "string" ? request.fileName : "",
       rawInput: typeof request.rawInput === "string" ? request.rawInput : "",
       answers: isRecord(request.answers)
@@ -46,7 +61,8 @@ function normalizeSnapshot(value: unknown): MasterWorkbookSnapshot | null {
       productName: typeof request.productName === "string" ? request.productName : "",
       uploadedFiles: Array.isArray(request.uploadedFiles)
         ? request.uploadedFiles.filter((item): item is string => typeof item === "string")
-        : uploadedFiles
+        : uploadedFiles,
+      masterProducts: normalizeMasterProducts(request.masterProducts)
     },
     createdAt: typeof value.createdAt === "string" ? value.createdAt : new Date().toISOString()
   };

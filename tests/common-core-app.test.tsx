@@ -1,10 +1,17 @@
 import ExcelJS from "exceljs";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import HomePage from "@/app/page";
+import HomePage from "@/components/home-page";
 import { extractProductCandidatesFromFiles } from "@/lib/product-candidate-parser";
 
 describe("Common core app flow", () => {
+  const authorizedSession = {
+    employeeId: "12345",
+    department: "신계약기획P",
+    name: "홍길동",
+    loggedInAt: new Date().toISOString()
+  };
+
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.stubGlobal(
@@ -88,7 +95,7 @@ describe("Common core app flow", () => {
   }
 
   it("renders master creation and change input on the first step", () => {
-    render(<HomePage />);
+    render(<HomePage userSession={authorizedSession} />);
 
     expect(
       screen.getByRole("heading", { name: "신계약 인수기준 반영 Agent" })
@@ -115,7 +122,7 @@ describe("Common core app flow", () => {
   it("hides the warning badge after a master file is selected", async () => {
     const user = userEvent.setup();
 
-    render(<HomePage />);
+    render(<HomePage userSession={authorizedSession} />);
 
     await user.upload(
       screen.getByLabelText("가이드라인 엑셀 업로드"),
@@ -145,7 +152,7 @@ describe("Common core app flow", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<HomePage />);
+    render(<HomePage userSession={authorizedSession} />);
 
     await createMasterWorkbook(user);
     expect(screen.queryByText("Rule Master")).not.toBeInTheDocument();
@@ -172,7 +179,7 @@ describe("Common core app flow", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<HomePage />);
+    render(<HomePage userSession={authorizedSession} />);
 
     await createMasterWorkbook(user);
     await user.click(screen.getByRole("button", { name: "입력완료" }));
@@ -207,7 +214,7 @@ describe("Common core app flow", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<HomePage />);
+    render(<HomePage userSession={authorizedSession} />);
 
     await createMasterWorkbook(user);
     await user.type(
@@ -256,7 +263,7 @@ describe("Common core app flow", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<HomePage />);
+    render(<HomePage userSession={authorizedSession} />);
 
     await createMasterWorkbook(user);
     await user.click(screen.getByRole("button", { name: "입력완료" }));
@@ -338,7 +345,7 @@ describe("Common core app flow", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<HomePage />);
+    render(<HomePage userSession={authorizedSession} />);
 
     await createMasterWorkbook(user);
     await user.click(screen.getByRole("button", { name: "입력완료" }));
@@ -395,7 +402,7 @@ describe("Common core app flow", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<HomePage />);
+    render(<HomePage userSession={authorizedSession} />);
 
     await user.upload(
       screen.getByLabelText("가이드라인 엑셀 업로드"),
@@ -474,7 +481,7 @@ describe("Common core app flow", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<HomePage />);
+    render(<HomePage userSession={authorizedSession} />);
 
     await createMasterWorkbook(user);
     await user.click(screen.getByRole("button", { name: "입력완료" }));
@@ -520,7 +527,7 @@ describe("Common core app flow", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<HomePage />);
+    render(<HomePage userSession={authorizedSession} />);
 
     await createMasterWorkbook(user);
     await user.click(screen.getByRole("button", { name: "입력완료" }));
@@ -552,7 +559,7 @@ describe("Common core app flow", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<HomePage />);
+    render(<HomePage userSession={authorizedSession} />);
 
     await createMasterWorkbook(user);
     await user.click(screen.getByRole("button", { name: "입력완료" }));

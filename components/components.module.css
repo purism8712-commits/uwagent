@@ -23,7 +23,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(420px, 0.75fr);
   gap: 24px;
-  align-items: end;
+  align-items: center;
 }
 
 .heroContent {
@@ -60,12 +60,50 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  align-self: end;
+  align-self: center;
+  justify-self: center;
+  width: 100%;
+  max-width: 540px;
+}
+
+.sessionBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 18px 0 22px;
+  padding: 14px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(156, 176, 209, 0.72);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 24px rgba(98, 122, 165, 0.06);
+}
+
+.sessionCopy {
+  display: grid;
+  gap: 4px;
+}
+
+.sessionLabel {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sessionName {
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.sessionMeta {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .heroStatCard {
-  min-height: 44px;
-  padding: 5px 8px;
+  min-height: 58px;
+  padding: 10px 12px;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(10px);
@@ -74,19 +112,133 @@
 .heroStatLabel {
   display: block;
   color: rgba(255, 255, 255, 0.68);
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1;
 }
 
 .heroStatValue {
   display: block;
-  margin-top: 1px;
-  font-size: 11px;
-  line-height: 1.05;
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.15;
   font-weight: 700;
   white-space: nowrap;
   word-break: keep-all;
   letter-spacing: -0.02em;
+}
+
+.authPanel {
+  min-height: 260px;
+  align-items: stretch;
+}
+
+.authFormCard {
+  display: grid;
+  gap: 14px;
+  padding: 18px 18px 20px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(12px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.authFormHeader {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.authFormEyebrow {
+  display: inline-flex;
+  width: fit-content;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.authFormTitle {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.25;
+  letter-spacing: -0.03em;
+  color: #fff;
+}
+
+.authFormText {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.authFieldGroup {
+  display: grid;
+  gap: 8px;
+}
+
+.authLabel {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.authInput,
+.authSelect {
+  width: 100%;
+  padding: 12px 14px;
+  min-height: 48px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--ink);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.authInput::placeholder {
+  color: #94a3b8;
+}
+
+.authSelect {
+  appearance: none;
+  line-height: 1.2;
+}
+
+.authButtonRow {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.authButton {
+  width: 100%;
+  min-width: 0;
+}
+
+.authNotice {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.authWarning {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(255, 241, 214, 0.14);
+  border: 1px solid rgba(255, 220, 153, 0.28);
+  color: #ffdca8;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .summaryCard,

@@ -8,6 +8,7 @@ type ReviewStageProps = {
   changeFileNames: string[];
   rawInput: string;
   answers: Record<string, string>;
+  isActionDisabled: boolean;
   isSubmitting: boolean;
   isMasterCreated: boolean;
   finalSummary: DraftSummary | null;
@@ -29,6 +30,7 @@ export function ReviewStage({
   changeFileNames,
   rawInput,
   answers,
+  isActionDisabled,
   isSubmitting,
   isMasterCreated,
   finalSummary,
@@ -187,7 +189,9 @@ export function ReviewStage({
               className={styles.primaryButton}
               type="button"
               onClick={onConfirmDraft}
-              disabled={hasUnansweredDynamicQuestion || isSubmitting || !isMasterCreated}
+              disabled={
+                isActionDisabled || hasUnansweredDynamicQuestion || isSubmitting || !isMasterCreated
+              }
             >
               {isSubmitting ? "초안 생성 중..." : "초안생성"}
             </button>
@@ -259,7 +263,7 @@ export function ReviewStage({
                   className={styles.secondaryButton}
                   type="button"
                   onClick={onDownloadMaster}
-                  disabled={isDownloadingMaster}
+                  disabled={isActionDisabled || isDownloadingMaster}
                 >
                   {isDownloadingMaster ? "다운로드 준비 중..." : "통합 마스터 다운로드"}
                 </button>
@@ -312,6 +316,7 @@ export function ReviewStage({
                                 className={styles.productCandidateButton}
                                 type="button"
                                 onClick={() => onProductSelect(product.productName)}
+                                disabled={isActionDisabled}
                               >
                                 <span className={styles.productCandidateName}>
                                   {product.productName}
@@ -339,7 +344,7 @@ export function ReviewStage({
                 <button
                   className={styles.secondaryButton}
                   type="button"
-                  disabled={!productName.trim() || isDownloadingProduct}
+                  disabled={isActionDisabled || !productName.trim() || isDownloadingProduct}
                   onClick={onDownloadProduct}
                 >
                   {isDownloadingProduct ? "추출 준비 중..." : "상품 추출 다운로드"}

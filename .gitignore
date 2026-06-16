@@ -10,3 +10,8 @@ data/outputs/
 
 # 로컬 의존성 링크
 node_modules/
+
+.vercel
+
+# 임시 에러 로그
+react-dom-client.development.js*.txt

@@ -1,9 +1,12 @@
+import type { ParsedProductCandidate } from "@/lib/product-candidate-parser";
+
 export type DraftRequest = {
   fileName: string;
   rawInput: string;
   answers: Record<string, string>;
   productName?: string;
   uploadedFiles?: string[];
+  masterProducts?: ParsedProductCandidate[];
 };
 
 export type LegacyDraftRequest = {
@@ -15,6 +18,7 @@ export type LegacyDraftRequest = {
   rawInput?: string;
   productName?: string;
   uploadedFiles?: string[] | null;
+  masterProducts?: unknown[] | null;
 };
 
 export type DraftSummary = {
@@ -55,8 +59,22 @@ export function normalizeDraftRequest(payload: unknown): DraftRequest {
     productName: request.productName ?? "",
     uploadedFiles: Array.isArray(request.uploadedFiles)
       ? request.uploadedFiles.filter((item): item is string => typeof item === "string")
+      : [],
+    masterProducts: Array.isArray(request.masterProducts)
+      ? request.masterProducts.filter((item): item is ParsedProductCandidate => {
+          if (!item || typeof item !== "object") {
+            return false;
+          }
+
+          const candidate = item as Partial<ParsedProductCandidate>;
+          return typeof candidate.productName === "string" && typeof candidate.sourceFileName === "string";
+        })
       : []
   };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function stripExtension(fileName: string) {
@@ -98,24 +116,70 @@ function buildFileStandardizationRows(uploadedFiles: string[], productName: stri
       머지대상: "전체 통합 마스터",
       병합순서: index + 1,
       상품명: fileProductName,
+      상품코드: "",
+      보험코드: "",
+      판매일자: "",
       검토메모: `${baseName}를 표준 템플릿으로 변환 후 통합 대상으로 포함`
     };
   });
 }
 
-function buildMergedWorkbookRow(uploadedFiles: string[], productName: string, fileName: string) {
+function buildUploadedProductRows(
+  masterProducts: ParsedProductCandidate[],
+  uploadedFiles: string[],
+  fallbackProductName: string
+) {
+  if (masterProducts.length === 0) {
+    return buildFileStandardizationRows(uploadedFiles, fallbackProductName);
+  }
+
+  return masterProducts.map((product, index) => {
+    const sourceFileName = product.sourceFileName || uploadedFiles[index] || `원본 ${index + 1}`;
+    const baseName = stripExtension(sourceFileName || product.productName || `원본 ${index + 1}`);
+    return {
+      파일구분: `원본 ${index + 1}`,
+      원본파일명: sourceFileName,
+      표준템플릿명: `${baseName}-표준템플릿`,
+      표준화상태: "완료",
+      머지대상: "전체 통합 마스터",
+      병합순서: index + 1,
+      상품명: product.productName || fallbackProductName,
+      상품코드: product.productCode || "",
+      보험코드: product.insuranceCode || "",
+      판매일자: product.saleDate || "",
+      검토메모: product.summary
+        ? `${product.summary} / 표준 템플릿으로 변환`
+        : `${baseName}를 표준 템플릿으로 변환 후 통합 대상으로 포함`
+    };
+  });
+}
+
+function buildMergedWorkbookRow(
+  uploadedFiles: string[],
+  productName: string,
+  fileName: string,
+  masterProducts: ParsedProductCandidate[]
+) {
   const normalizedFiles = uniqueFiles(uploadedFiles);
+  const firstProduct = masterProducts[0];
+  const mergedSourceNames =
+    masterProducts.length > 0
+      ? uniqueFiles(masterProducts.map((item) => item.sourceFileName))
+      : normalizedFiles;
   const joinedNames =
-    normalizedFiles.length > 0 ? normalizedFiles.join(" + ") : fileName || "직접 입력 기반";
+    mergedSourceNames.length > 0 ? mergedSourceNames.join(" + ") : fileName || "직접 입력 기반";
 
   return {
     파일구분: "전체 통합본",
     원본파일명: joinedNames,
     표준템플릿명: "전체 통합 마스터",
-    표준화상태: normalizedFiles.length > 0 ? "머지 완료" : "기본 생성",
-    머지대상: normalizedFiles.length > 0 ? `${normalizedFiles.length}개 파일` : "1개 입력",
+    표준화상태: mergedSourceNames.length > 0 ? "머지 완료" : "기본 생성",
+    머지대상: mergedSourceNames.length > 0 ? `${mergedSourceNames.length}개 파일` : "1개 입력",
     병합순서: "ALL",
     상품명: productName,
+    상품코드: firstProduct?.productCode || "MASTER",
+    보험코드: firstProduct?.insuranceCode || "MASTER",
+    판매일자: firstProduct?.saleDate || "",
     검토메모: normalizedFiles.length > 0
       ? "파일별 표준화 결과를 하나의 통합 마스터로 병합"
       : "단일 입력 기준으로 통합 마스터 생성"
@@ -125,14 +189,22 @@ function buildMergedWorkbookRow(uploadedFiles: string[], productName: string, fi
 export function buildDraftWorkbookData(request: DraftRequest): DraftWorkbookData {
   const answerValues = Object.values(request.answers ?? {}).filter(Boolean);
   const uploadedFiles = uniqueFiles(request.uploadedFiles ?? []);
+  const masterProducts = request.masterProducts ?? [];
+  const hasMasterProducts = masterProducts.length > 0;
   const workbookProductName =
     request.productName?.trim() ||
+    masterProducts[0]?.productName?.trim() ||
     deriveProductLabel(uploadedFiles[0] ?? "") ||
     "건강하고 튼튼하게";
-  const saleDate = "2026-04-01";
-  const hasUploadedFiles = uploadedFiles.length > 0;
-  const standardizedRows = buildFileStandardizationRows(uploadedFiles, workbookProductName);
-  const mergedWorkbookRow = buildMergedWorkbookRow(uploadedFiles, workbookProductName, request.fileName);
+  const saleDate = masterProducts[0]?.saleDate?.trim() || "2026-04-01";
+  const hasUploadedFiles = uploadedFiles.length > 0 || hasMasterProducts;
+  const standardizedRows = buildUploadedProductRows(masterProducts, uploadedFiles, workbookProductName);
+  const mergedWorkbookRow = buildMergedWorkbookRow(
+    uploadedFiles,
+    workbookProductName,
+    request.fileName,
+    masterProducts
+  );
 
   const summary: DraftSummary = {
     target: "소액암진단",
@@ -150,6 +222,7 @@ export function buildDraftWorkbookData(request: DraftRequest): DraftWorkbookData
       ? [
           { 항목: "상품명", 값: workbookProductName },
           { 항목: "판매일자", 값: saleDate },
+          { 항목: "상품 코드 수", 값: `${standardizedRows.length}개` },
           { 항목: "업로드 파일 수", 값: `${uploadedFiles.length}개` },
           { 항목: "처리 방식", 값: "파일별 표준화 후 단일 통합 마스터 병합" }
         ]
@@ -162,11 +235,12 @@ export function buildDraftWorkbookData(request: DraftRequest): DraftWorkbookData
       ? [
           ...standardizedRows.map((row, index) => ({
             상품명: row.상품명,
+            상품코드: row.상품코드,
+            보험코드: row.보험코드,
             판매일자: saleDate,
             "Rule ID": `R-0${index + 1}`,
             상태: "표준화 완료",
             특약명: `파일별 템플릿 ${index + 1}`,
-            보험코드: `SRC-${index + 1}`,
             "as-is 일반/건강 단일건": 1000,
             "to-be 일반/건강 단일건": 2000,
             "as-is 간편 단일건": 1000,
@@ -179,11 +253,12 @@ export function buildDraftWorkbookData(request: DraftRequest): DraftWorkbookData
           })),
           {
             상품명: workbookProductName,
+            상품코드: mergedWorkbookRow.상품코드,
+            보험코드: mergedWorkbookRow.보험코드,
             판매일자: saleDate,
             "Rule ID": "R-MERGED",
             상태: mergedWorkbookRow.표준화상태,
             특약명: mergedWorkbookRow.표준템플릿명,
-            보험코드: "MASTER",
             "as-is 일반/건강 단일건": 1000,
             "to-be 일반/건강 단일건": 2000,
             "as-is 간편 단일건": 1000,
@@ -198,11 +273,12 @@ export function buildDraftWorkbookData(request: DraftRequest): DraftWorkbookData
       : [
       {
         상품명: workbookProductName,
+        상품코드: "LI00113",
+        보험코드: "LI00113",
         판매일자: saleDate,
         "Rule ID": "R-003",
         상태: "시행예정",
         특약명: "소액암진단",
-        보험코드: "LI00113",
         "as-is 일반/건강 단일건": 1000,
         "to-be 일반/건강 단일건": 2000,
         "as-is 간편 단일건": 1000,
@@ -218,6 +294,8 @@ export function buildDraftWorkbookData(request: DraftRequest): DraftWorkbookData
       ? [
           ...standardizedRows.map((row, index) => ({
             상품명: row.상품명,
+            상품코드: row.상품코드,
+            보험코드: row.보험코드,
             "Note ID": `N-0${index + 1}`,
             주석명: `${stripExtension(uploadedFiles[index])} 표준화 메모`,
             "주석 원문": `${row.원본파일명}를 표준 템플릿으로 변환`,
@@ -229,6 +307,8 @@ export function buildDraftWorkbookData(request: DraftRequest): DraftWorkbookData
           })),
           {
             상품명: workbookProductName,
+            상품코드: mergedWorkbookRow.상품코드,
+            보험코드: mergedWorkbookRow.보험코드,
             "Note ID": "N-MERGED",
             주석명: "통합 머지 메모",
             "주석 원문": "파일별 표준화 결과를 하나의 통합 마스터로 병합",
@@ -242,6 +322,8 @@ export function buildDraftWorkbookData(request: DraftRequest): DraftWorkbookData
       : [
       {
         상품명: workbookProductName,
+        상품코드: "LI00113",
+        보험코드: "LI00113",
         "Note ID": "N-002",
         주석명: "암진단-소액암 연계",
         "주석 원문": "암진단 가입시 소액암 진단 가입필수",
@@ -253,6 +335,8 @@ export function buildDraftWorkbookData(request: DraftRequest): DraftWorkbookData
       },
       {
         상품명: workbookProductName,
+        상품코드: "LI00113",
+        보험코드: "LI00113",
         "Note ID": "N-003",
         주석명: "소액암 인별합산 예외",
         "주석 원문": "소액암 진단 인별합산 한도 5천만원 (단, 66세 이상 3천만)",
@@ -267,6 +351,8 @@ export function buildDraftWorkbookData(request: DraftRequest): DraftWorkbookData
       ? [
           ...standardizedRows.map((row, index) => ({
             상품명: row.상품명,
+            상품코드: row.상품코드,
+            보험코드: row.보험코드,
             "Rule ID": `R-0${index + 1}`,
             "Note ID": `N-0${index + 1}`,
             적용범위: "파일별 템플릿",
@@ -276,6 +362,8 @@ export function buildDraftWorkbookData(request: DraftRequest): DraftWorkbookData
           })),
           {
             상품명: workbookProductName,
+            상품코드: mergedWorkbookRow.상품코드,
+            보험코드: mergedWorkbookRow.보험코드,
             "Rule ID": "R-MERGED",
             "Note ID": "N-MERGED",
             적용범위: "전체 통합본",
@@ -287,6 +375,8 @@ export function buildDraftWorkbookData(request: DraftRequest): DraftWorkbookData
       : [
       {
         상품명: workbookProductName,
+        상품코드: "LI00113",
+        보험코드: "LI00113",
         "Rule ID": "R-003",
         "Note ID": "N-002",
         적용범위: "단일행",
@@ -296,6 +386,8 @@ export function buildDraftWorkbookData(request: DraftRequest): DraftWorkbookData
       },
       {
         상품명: workbookProductName,
+        상품코드: "LI00113",
+        보험코드: "LI00113",
         "Rule ID": "R-003",
         "Note ID": "N-003",
         적용범위: "단일행",
@@ -308,6 +400,8 @@ export function buildDraftWorkbookData(request: DraftRequest): DraftWorkbookData
       ? [
           {
             상품명: workbookProductName,
+            상품코드: mergedWorkbookRow.상품코드,
+            보험코드: mergedWorkbookRow.보험코드,
             "Change ID": "C-001",
             "Rule ID": "R-MERGED",
             상태변경: "파일별 표준화 -> 통합 머지",
@@ -321,6 +415,8 @@ export function buildDraftWorkbookData(request: DraftRequest): DraftWorkbookData
       : [
       {
         상품명: workbookProductName,
+        상품코드: "LI00113",
+        보험코드: "LI00113",
         "Change ID": "C-001",
         "Rule ID": "R-003",
         상태변경: "현행 -> 시행예정",

@@ -1,7 +1,7 @@
-import HomePage from "@/components/home-page";
+import PreviewGate from "@/components/preview-gate";
 
 export const dynamic = "force-dynamic";
 
 export default function PreviewPage() {
-  return <HomePage />;
+  return <PreviewGate />;
 }

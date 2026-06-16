@@ -6,6 +6,7 @@ type InputStageProps = {
   masterFileNames: string[];
   changeFileNames: string[];
   masterPreview: DraftWorkbookData | null;
+  isActionDisabled: boolean;
   isMasterCreated: boolean;
   isCreatingMaster: boolean;
   isPreviewLoading: boolean;
@@ -71,6 +72,7 @@ export function InputStage({
   masterFileNames,
   changeFileNames,
   masterPreview,
+  isActionDisabled,
   isMasterCreated,
   isCreatingMaster,
   isPreviewLoading,
@@ -114,7 +116,7 @@ export function InputStage({
                 className={styles.primaryButton}
                 type="button"
                 onClick={onCreateMasterWorkbook}
-                disabled={isCreatingMaster || masterFileNames.length === 0}
+                disabled={isActionDisabled || isCreatingMaster || masterFileNames.length === 0}
               >
                 {isCreatingMaster ? "통합 마스터 생성 중..." : "전체 통합 마스터 파일 만들기"}
               </button>
@@ -167,7 +169,7 @@ export function InputStage({
                 className={styles.secondaryButton}
                 type="button"
                 onClick={onPreviewMasterWorkbook}
-                disabled={isPreviewLoading || masterFileNames.length === 0}
+                disabled={isActionDisabled || isPreviewLoading || masterFileNames.length === 0}
               >
                 {isPreviewLoading ? "미리보기 불러오는 중..." : "미리보기"}
               </button>
@@ -267,7 +269,7 @@ export function InputStage({
             className={styles.primaryButton}
             type="button"
             onClick={onComplete}
-            disabled={!isMasterCreated}
+            disabled={isActionDisabled || !isMasterCreated}
           >
             입력완료
           </button>

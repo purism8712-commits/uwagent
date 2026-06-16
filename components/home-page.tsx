@@ -6,14 +6,21 @@ import { InputStage } from "@/components/input-stage";
 import { ReviewStage } from "@/components/review-stage";
 import { StepProgressBar } from "@/components/step-progress-bar";
 import styles from "@/components/components.module.css";
+import { canUseAgentScope, clearAuthSession } from "@/lib/session";
 import type { DraftSummary, DraftWorkbookData } from "@/lib/draft-builder";
 import { extractProductCandidatesFromFiles } from "@/lib/product-candidate-parser";
 import { sampleProductOptions } from "@/lib/sample-data";
 import type { SampleProductOption } from "@/lib/sample-data";
+import type { AuthSession } from "@/lib/session";
+import type { ParsedProductCandidate } from "@/lib/product-candidate-parser";
 
 type Step = "input" | "review";
 
-export default function HomePage() {
+type HomePageProps = {
+  userSession?: AuthSession | null;
+};
+
+export default function HomePage({ userSession }: HomePageProps) {
   const [step, setStep] = useState<Step>("input");
   const [rawInput, setRawInput] = useState("");
   const [masterFiles, setMasterFiles] = useState<File[]>([]);
@@ -31,7 +38,9 @@ export default function HomePage() {
   const [isDownloadingMaster, setIsDownloadingMaster] = useState(false);
   const [isDownloadingProduct, setIsDownloadingProduct] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  const [parsedMasterProductOptions, setParsedMasterProductOptions] = useState<SampleProductOption[]>([]);
+  const [parsedMasterProductOptions, setParsedMasterProductOptions] = useState<ParsedProductCandidate[]>([]);
+  const department = userSession?.department ?? "";
+  const canUseCommonCore = canUseAgentScope(department, "common-core");
   const masterPrimaryFileName = masterFileNames[0] ?? "";
   const changePrimaryFileName = changeFileNames[0] ?? "";
   const primaryFileName = changePrimaryFileName || masterPrimaryFileName;
@@ -94,6 +103,9 @@ export default function HomePage() {
     setSubmitError("");
 
     try {
+      const parsedProducts = await extractProductCandidatesFromFiles(masterFiles);
+      setParsedMasterProductOptions(parsedProducts);
+
       const response = await fetch("/api/master-workbook", {
         method: "POST",
         headers: {
@@ -101,7 +113,8 @@ export default function HomePage() {
         },
         body: JSON.stringify({
           uploadedFiles: masterFileNames,
-          fileName: masterPrimaryFileName
+          fileName: masterPrimaryFileName,
+          masterProducts: parsedProducts
         })
       });
 
@@ -177,6 +190,7 @@ export default function HomePage() {
       rawInput,
       answers: JSON.stringify(answers),
       exportMode: "master",
+      masterProducts: JSON.stringify(parsedMasterProductOptions),
       uploadedFiles: JSON.stringify(changeFileNames),
       masterFiles: JSON.stringify(masterFileNames)
     }).toString()}`;
@@ -198,6 +212,7 @@ export default function HomePage() {
       answers: JSON.stringify(answers),
       exportMode: "product",
       productName: productName.trim(),
+      masterProducts: JSON.stringify(parsedMasterProductOptions),
       uploadedFiles: JSON.stringify(changeFileNames),
       masterFiles: JSON.stringify(masterFileNames)
     }).toString()}`;
@@ -240,6 +255,27 @@ export default function HomePage() {
   return (
     <main className={styles.pageShell}>
       <HeroSection />
+      {userSession ? (
+        <section className={styles.sessionBar}>
+          <div className={styles.sessionCopy}>
+            <span className={styles.sessionLabel}>로그인 정보</span>
+            <strong className={styles.sessionName}>
+              {userSession.name} · {userSession.department}
+            </strong>
+            <span className={styles.sessionMeta}>사번 {userSession.employeeId}</span>
+          </div>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            onClick={() => {
+              clearAuthSession();
+              window.location.assign("/");
+            }}
+          >
+            로그아웃
+          </button>
+        </section>
+      ) : null}
       <StepProgressBar step={step} isDraftReady={Boolean(finalSummary)} />
       <div className={styles.stepFlowStack}>
         <InputStage
@@ -247,6 +283,7 @@ export default function HomePage() {
           masterFileNames={masterFileNames}
           changeFileNames={changeFileNames}
           masterPreview={masterPreview}
+          isActionDisabled={!canUseCommonCore}
           isMasterCreated={isMasterCreated}
           isCreatingMaster={isCreatingMaster}
           isPreviewLoading={isPreviewLoading}
@@ -278,6 +315,7 @@ export default function HomePage() {
             changeFileNames={changeFileNames}
             rawInput={rawInput}
             answers={answers}
+            isActionDisabled={!canUseCommonCore}
             isSubmitting={isSubmitting}
             finalSummary={finalSummary}
             submitError={submitError}

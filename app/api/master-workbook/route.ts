@@ -4,11 +4,27 @@ import {
   masterWorkbookStore,
   type MasterWorkbookSnapshot
 } from "@/lib/master-workbook-store";
+import type { ParsedProductCandidate } from "@/lib/product-candidate-parser";
 
 type MasterWorkbookRequest = {
   uploadedFiles?: string[];
   fileName?: string;
+  masterProducts?: unknown[];
 };
+
+function isParsedProductCandidate(value: unknown): value is ParsedProductCandidate {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  return typeof (value as ParsedProductCandidate).productName === "string" &&
+    typeof (value as ParsedProductCandidate).sourceFileName === "string" &&
+    typeof (value as ParsedProductCandidate).sheetName === "string";
+}
+
+function normalizeMasterProducts(value: unknown): ParsedProductCandidate[] {
+  return Array.isArray(value) ? value.filter(isParsedProductCandidate) : [];
+}
 
 export async function POST(request: Request) {
   const payload = (await request.json()) as MasterWorkbookRequest;
@@ -30,7 +46,8 @@ export async function POST(request: Request) {
       rawInput: "",
       answers: {},
       productName: "",
-      uploadedFiles
+      uploadedFiles,
+      masterProducts: normalizeMasterProducts(payload.masterProducts)
     },
     createdAt: new Date().toISOString()
   };
