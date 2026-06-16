@@ -1,0 +1,32 @@
+
+> uwagent@0.1.0 dev
+> next dev --hostname 127.0.0.1 --port 3000
+
+   ▲ Next.js 15.5.19
+   - Local:        http://127.0.0.1:3000
+   - Network:      http://127.0.0.1:3000
+   - Environments: .env
+
+ ✓ Starting...
+ ✓ Ready in 1438ms
+ ○ Compiling /api/draft-summary ...
+ ✓ Compiled /api/draft-summary in 1143ms (298 modules)
+ POST /api/draft-summary 200 in 1285ms
+ ○ Compiling / ...
+ ✓ Compiled / in 1474ms (588 modules)
+ GET / 200 in 1695ms
+ POST /api/draft-summary 200 in 23ms
+ POST /api/draft-summary 200 in 21ms
+ POST /api/draft-summary 200 in 19ms
+ ✓ Compiled /api/draft-export in 422ms (568 modules)
+ GET /api/draft-export?fileName=%EA%B1%B4%EA%B0%95%ED%95%98%EA%B2%8C+%EC%8B%A0%EA%B3%84%EC%95%BD%EA%B0%80%EC%9D%B4%EB%93%9C%EB%9D%BC%EC%9D%B8.xlsx&rawInput=%EC%86%8C%EC%95%A1%EC%95%94%EC%A7%84%EB%8B%A8+%EB%8B%A8%EC%9D%BC%EA%B1%B4+%ED%95%9C%EB%8F%84%EB%A5%BC+1000%EC%97%90%EC%84%9C+2000%EC%9C%BC%EB%A1%9C+%EB%B3%80%EA%B2%BD%60&answers=%7B%22question-1%22%3A%22%EB%B3%80%EA%B2%BD%22%2C%22question-2%22%3A%22%EC%9C%A0%EC%A7%80%22%2C%22question-3%22%3A%22%EC%9C%A0%EC%A7%80%22%2C%22question-4%22%3A%22%EC%9C%A0%EC%A7%80%22%2C%22question-5%22%3A%22%EC%B4%88%EC%95%88%22%7D&exportMode=master&uploadedFiles=%5B%22%EA%B1%B4%EA%B0%95%ED%95%98%EA%B2%8C+%EC%8B%A0%EA%B3%84%EC%95%BD%EA%B0%80%EC%9D%B4%EB%93%9C%EB%9D%BC%EC%9D%B8.xlsx%22%2C%22%EC%8B%A4%EB%B2%84%EB%B3%B4%ED%97%98+%EC%8B%A0%EA%B3%84%EC%95%BD%EA%B0%80%EC%9D%B4%EB%93%9C%EB%9D%BC%EC%9D%B8.xlsx%22%5D 200 in 533ms
+ ✓ Compiled in 146ms (568 modules)
+ GET / 200 in 157ms
+ ✓ Compiled in 184ms (568 modules)
+ ✓ Compiled in 175ms (578 modules)
+ GET / 200 in 45ms
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 1512ms (894 modules)
+ GET / 500 in 3542ms
+ GET / 500 in 1088ms
+[?25h

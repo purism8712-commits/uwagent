@@ -1,0 +1,58 @@
+ ⨯ Error: Could not find the module "C:\Users\suhyang\Desktop\uwagent\node_modules\next\dist\next-devtools\userspace\app\segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+    at stringify (<anonymous>) {
+  digest: '3977810892'
+}
+ ⨯ Error: Could not find the module "C:\Users\suhyang\Desktop\uwagent\node_modules\next\dist\next-devtools\userspace\app\segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+    at stringify (<anonymous>)
+    at stringify (<anonymous>) {
+  digest: '346720104'
+}
+ ⨯ Error: Could not find the module "C:\Users\suhyang\Desktop\uwagent\node_modules\next\dist\next-devtools\userspace\app\segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+    at stringify (<anonymous>)
+    at stringify (<anonymous>) {
+  digest: '346720104'
+}
+ ⨯ Error: Could not find the module "C:\Users\suhyang\Desktop\uwagent\node_modules\next\dist\next-devtools\userspace\app\segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+    at stringify (<anonymous>)
+    at stringify (<anonymous>) {
+  digest: '346720104'
+}
+ ⨯ Error: Could not find the module "C:\Users\suhyang\Desktop\uwagent\node_modules\next\dist\next-devtools\userspace\app\segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+    at stringify (<anonymous>) {
+  digest: '3977810892'
+}
+ ⨯ Error: Could not find the module "C:\Users\suhyang\Desktop\uwagent\node_modules\next\dist\next-devtools\userspace\app\segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+    at stringify (<anonymous>) {
+  digest: '3977810892'
+}
+ ⨯ [TypeError: __webpack_modules__[moduleId] is not a function] {
+  digest: '3044749925'
+}
+ ⨯ Error: Could not find the module "C:\Users\suhyang\Desktop\uwagent\node_modules\next\dist\next-devtools\userspace\app\segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+    at stringify (<anonymous>) {
+  digest: '3977810892'
+}
+[TypeError: __webpack_modules__[moduleId] is not a function]
+ ⨯ [TypeError: __webpack_modules__[moduleId] is not a function]
+ ⨯ [TypeError: __webpack_modules__[moduleId] is not a function] {
+  page: '/'
+}
+ ⨯ Error: Cannot find module './331.js'
+Require stack:
+- C:\Users\suhyang\Desktop\uwagent\.next\server\webpack-runtime.js
+- C:\Users\suhyang\Desktop\uwagent\.next\server\pages\_document.js
+- C:\Users\suhyang\Desktop\uwagent\node_modules\next\dist\server\require.js
+- C:\Users\suhyang\Desktop\uwagent\node_modules\next\dist\server\load-components.js
+- C:\Users\suhyang\Desktop\uwagent\node_modules\next\dist\build\utils.js
+- C:\Users\suhyang\Desktop\uwagent\node_modules\next\dist\build\swc\options.js
+- C:\Users\suhyang\Desktop\uwagent\node_modules\next\dist\build\swc\index.js
+- C:\Users\suhyang\Desktop\uwagent\node_modules\next\dist\build\next-config-ts\transpile-config.js
+- C:\Users\suhyang\Desktop\uwagent\node_modules\next\dist\server\config.js
+- C:\Users\suhyang\Desktop\uwagent\node_modules\next\dist\server\next.js
+- C:\Users\suhyang\Desktop\uwagent\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (C:\Users\suhyang\Desktop\uwagent\.next\server\app\page.js:2:29966)
+    at Object.<anonymous> (C:\Users\suhyang\Desktop\uwagent\.next\server\app\page.js:2:30015) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array],
+  page: '/'
+}

@@ -1,0 +1,12 @@
+# 환경변수 파일
+.env
+.env.local
+.env.*
+!.env.example
+
+# 런타임 출력물
+data/outputs/
+.next/
+
+# 로컬 의존성 링크
+node_modules/
