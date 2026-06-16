@@ -6,7 +6,7 @@ export function HeroSection() {
       <div className={styles.heroPanel}>
         <div className={styles.heroContent}>
           <span className={styles.heroEyebrow}>Common Core Wizard</span>
-          <h1 className={styles.heroTitle}>신계약 공통 에이전트</h1>
+          <h1 className={styles.heroTitle}>신계약 인수기준 반영 Agent</h1>
           <p className={styles.heroDescription}>
             변경된 엑셀, 표, 자연어 입력을 공통 양식 초안으로 정리하고 검토메모와
             확인 질문까지 이어서 처리하는 내부 업무용 데스크톱 에이전트입니다.

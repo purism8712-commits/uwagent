@@ -29,7 +29,8 @@ export async function POST(request: Request) {
       fileName: payload.fileName ?? uploadedFiles[0] ?? "",
       rawInput: "",
       answers: {},
-      productName: ""
+      productName: "",
+      uploadedFiles
     },
     createdAt: new Date().toISOString()
   };

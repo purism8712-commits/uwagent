@@ -60,6 +60,69 @@ describe("draft request normalization", () => {
     });
   });
 
+  it("derives per-file product labels from uploaded guideline filenames", () => {
+    const draft = buildDraftWorkbookData({
+      fileName: "건강하게 신계약가이드라인.xlsx",
+      rawInput: "파일별 표준화 후 전체 통합본 생성",
+      answers: {},
+      uploadedFiles: [
+        "건강하게 신계약가이드라인.xlsx",
+        "실버보험 신계약가이드라인.xlsx"
+      ]
+    });
+
+    expect(draft.overview).toEqual([
+      { 항목: "상품명", 값: "건강하게" },
+      { 항목: "판매일자", 값: "2026-04-01" },
+      { 항목: "업로드 파일 수", 값: "2개" },
+      { 항목: "처리 방식", 값: "파일별 표준화 후 단일 통합 마스터 병합" }
+    ]);
+    expect(draft.ruleMaster[0]).toMatchObject({
+      상품명: "건강하게",
+      출처위치: "건강하게 신계약가이드라인.xlsx"
+    });
+    expect(draft.ruleMaster[1]).toMatchObject({
+      상품명: "실버보험",
+      출처위치: "실버보험 신계약가이드라인.xlsx"
+    });
+  });
+
+  it("merges uploaded files into a standardized master workbook preview", () => {
+    const draft = buildDraftWorkbookData({
+      fileName: "master-guideline.xlsx",
+      rawInput: "파일별 표준화 후 전체 통합본 생성",
+      answers: {},
+      productName: "건강플러스암보험",
+      uploadedFiles: ["master-guideline.xlsx", "change-guideline.xlsx"]
+    });
+
+    expect(draft.overview).toEqual([
+      { 항목: "상품명", 값: "건강플러스암보험" },
+      { 항목: "판매일자", 값: "2026-04-01" },
+      { 항목: "업로드 파일 수", 값: "2개" },
+      { 항목: "처리 방식", 값: "파일별 표준화 후 단일 통합 마스터 병합" }
+    ]);
+    expect(draft.ruleMaster).toHaveLength(3);
+    expect(draft.ruleMaster[0]).toMatchObject({
+      "Rule ID": "R-01",
+      상태: "표준화 완료",
+      출처위치: "master-guideline.xlsx"
+    });
+    expect(draft.ruleMaster[2]).toMatchObject({
+      "Rule ID": "R-MERGED",
+      상태: "머지 완료",
+      출처위치: "master-guideline.xlsx + change-guideline.xlsx"
+    });
+    expect(draft.noteMaster[2]).toMatchObject({
+      "Note ID": "N-MERGED",
+      주석유형: "병합조건"
+    });
+    expect(draft.changeLog[0]).toMatchObject({
+      "Rule ID": "R-MERGED",
+      상태변경: "파일별 표준화 -> 통합 머지"
+    });
+  });
+
   it("highlights changed cells when a baseline master exists", async () => {
     const { buffer } = await buildDraftWorkbookBuffer(
       {

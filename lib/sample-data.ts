@@ -14,6 +14,7 @@ export type ReviewQuestion = {
 
 export type SampleProductOption = {
   id: string;
+  productCode?: string;
   productName: string;
   saleDate: string;
   summary: string;

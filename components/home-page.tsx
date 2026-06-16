@@ -1,19 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { HeroSection } from "@/components/hero-section";
 import { InputStage } from "@/components/input-stage";
 import { ReviewStage } from "@/components/review-stage";
 import { StepProgressBar } from "@/components/step-progress-bar";
 import styles from "@/components/components.module.css";
 import type { DraftSummary, DraftWorkbookData } from "@/lib/draft-builder";
+import { extractProductCandidatesFromFiles } from "@/lib/product-candidate-parser";
 import { sampleProductOptions } from "@/lib/sample-data";
+import type { SampleProductOption } from "@/lib/sample-data";
 
 type Step = "input" | "review";
 
 export default function HomePage() {
   const [step, setStep] = useState<Step>("input");
   const [rawInput, setRawInput] = useState("");
+  const [masterFiles, setMasterFiles] = useState<File[]>([]);
   const [masterFileNames, setMasterFileNames] = useState<string[]>([]);
   const [changeFileNames, setChangeFileNames] = useState<string[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -28,19 +31,58 @@ export default function HomePage() {
   const [isDownloadingMaster, setIsDownloadingMaster] = useState(false);
   const [isDownloadingProduct, setIsDownloadingProduct] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [parsedMasterProductOptions, setParsedMasterProductOptions] = useState<SampleProductOption[]>([]);
   const masterPrimaryFileName = masterFileNames[0] ?? "";
   const changePrimaryFileName = changeFileNames[0] ?? "";
   const primaryFileName = changePrimaryFileName || masterPrimaryFileName;
-  const allFileNames = [...masterFileNames, ...changeFileNames];
-  const productOptions = [
-    ...sampleProductOptions,
-    ...allFileNames.map((fileName, index) => ({
-      id: `uploaded-${index + 1}`,
-      productName: fileName.replace(/\.[^.]+$/, ""),
-      saleDate: "업로드 기준",
-      summary: "업로드된 가이드라인 파일명 기준 자동 후보"
-    }))
-  ];
+  const productOptions = useMemo(() => {
+    const merged = new Map<string, SampleProductOption>();
+
+    const upsert = (option: SampleProductOption, force = false) => {
+      const key = (option.productName || option.productCode || "").trim().toLowerCase();
+      if (!key) {
+        return;
+      }
+
+      const existing = merged.get(key);
+      if (!existing || force) {
+        merged.set(key, option);
+      }
+    };
+
+    sampleProductOptions.forEach((option) => upsert(option));
+    parsedMasterProductOptions.forEach((option) => upsert(option, true));
+
+    return Array.from(merged.values());
+  }, [parsedMasterProductOptions]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (masterFiles.length === 0) {
+      setParsedMasterProductOptions([]);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void (async () => {
+      try {
+        const parsed = await extractProductCandidatesFromFiles(masterFiles);
+        if (!cancelled) {
+          setParsedMasterProductOptions(parsed);
+        }
+      } catch {
+        if (!cancelled) {
+          setParsedMasterProductOptions([]);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [masterFiles]);
 
   async function handleCreateMasterWorkbook() {
     if (masterFileNames.length === 0) {
@@ -108,17 +150,28 @@ export default function HomePage() {
   }
 
   function startDirectDownload(downloadUrl: string, fileName: string) {
+    const isJsdom = navigator.userAgent.toLowerCase().includes("jsdom");
+
     const link = document.createElement("a");
     link.href = downloadUrl;
     link.download = fileName;
     link.rel = "noopener";
+    link.target = "_self";
     document.body.append(link);
     link.click();
     link.remove();
+
+    if (!isJsdom) {
+      window.setTimeout(() => {
+        // 직접 링크 방식이 막힌 환경에서는 서버 첨부 응답으로 한 번 더 시도한다.
+        window.location.assign(downloadUrl);
+      }, 0);
+    }
   }
 
-  function handleDownloadMaster() {
+  async function handleDownloadMaster() {
     setIsDownloadingMaster(true);
+    const downloadName = "integrated-master-preview.xlsx";
     const downloadUrl = `/api/draft-export?${new URLSearchParams({
       fileName: primaryFileName,
       rawInput,
@@ -128,16 +181,17 @@ export default function HomePage() {
       masterFiles: JSON.stringify(masterFileNames)
     }).toString()}`;
 
-    startDirectDownload(downloadUrl, "integrated-master-preview.xlsx");
-    window.setTimeout(() => setIsDownloadingMaster(false), 700);
+    startDirectDownload(downloadUrl, downloadName);
+    window.setTimeout(() => setIsDownloadingMaster(false), 1000);
   }
 
-  function handleDownloadProduct() {
+  async function handleDownloadProduct() {
     if (!productName.trim()) {
       return;
     }
 
     setIsDownloadingProduct(true);
+    const downloadName = `${productName.trim()}-extract-preview.xlsx`;
     const downloadUrl = `/api/draft-export?${new URLSearchParams({
       fileName: primaryFileName,
       rawInput,
@@ -148,11 +202,8 @@ export default function HomePage() {
       masterFiles: JSON.stringify(masterFileNames)
     }).toString()}`;
 
-    startDirectDownload(
-      downloadUrl,
-      `${productName.trim()}-extract-preview.xlsx`
-    );
-    window.setTimeout(() => setIsDownloadingProduct(false), 700);
+    startDirectDownload(downloadUrl, downloadName);
+    window.setTimeout(() => setIsDownloadingProduct(false), 1000);
   }
 
   async function handleConfirmDraft() {
@@ -189,8 +240,8 @@ export default function HomePage() {
   return (
     <main className={styles.pageShell}>
       <HeroSection />
-      <StepProgressBar step={step} />
-      {step === "input" ? (
+      <StepProgressBar step={step} isDraftReady={Boolean(finalSummary)} />
+      <div className={styles.stepFlowStack}>
         <InputStage
           rawInput={rawInput}
           masterFileNames={masterFileNames}
@@ -202,6 +253,7 @@ export default function HomePage() {
           previewError={previewError}
           onRawInputChange={setRawInput}
           onMasterFileChange={(files) => {
+            setMasterFiles(files);
             setMasterFileNames(files.map((file) => file.name));
             setChangeFileNames([]);
             setAnswers({});
@@ -220,30 +272,31 @@ export default function HomePage() {
           onPreviewMasterWorkbook={handlePreviewMasterWorkbook}
           onComplete={() => setStep("review")}
         />
-      ) : (
-        <ReviewStage
-          masterFileNames={masterFileNames}
-          changeFileNames={changeFileNames}
-          rawInput={rawInput}
-          answers={answers}
-          isSubmitting={isSubmitting}
-          finalSummary={finalSummary}
-          submitError={submitError}
-          isMasterCreated={isMasterCreated}
-          productName={productName}
-          productOptions={productOptions}
-          isDownloadingMaster={isDownloadingMaster}
-          isDownloadingProduct={isDownloadingProduct}
-          onAnswerChange={(id, value) =>
-            setAnswers((current) => ({ ...current, [id]: value }))
-          }
-          onProductNameChange={setProductName}
-          onProductSelect={setProductName}
-          onConfirmDraft={handleConfirmDraft}
-          onDownloadMaster={handleDownloadMaster}
-          onDownloadProduct={handleDownloadProduct}
-        />
-      )}
+        {step === "review" ? (
+          <ReviewStage
+            masterFileNames={masterFileNames}
+            changeFileNames={changeFileNames}
+            rawInput={rawInput}
+            answers={answers}
+            isSubmitting={isSubmitting}
+            finalSummary={finalSummary}
+            submitError={submitError}
+            isMasterCreated={isMasterCreated}
+            productName={productName}
+            productOptions={productOptions}
+            isDownloadingMaster={isDownloadingMaster}
+            isDownloadingProduct={isDownloadingProduct}
+            onAnswerChange={(id, value) =>
+              setAnswers((current) => ({ ...current, [id]: value }))
+            }
+            onProductNameChange={setProductName}
+            onProductSelect={setProductName}
+            onConfirmDraft={handleConfirmDraft}
+            onDownloadMaster={handleDownloadMaster}
+            onDownloadProduct={handleDownloadProduct}
+          />
+        ) : null}
+      </div>
     </main>
   );
 }

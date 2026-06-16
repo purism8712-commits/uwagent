@@ -11,7 +11,7 @@
 
 .heroPanel {
   min-height: 232px;
-  padding: 30px 34px;
+  padding: 24px 34px;
   border-radius: var(--radius-xl);
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.07), transparent 30%),
@@ -43,7 +43,7 @@
 }
 
 .heroTitle {
-  margin: 16px 0 10px;
+  margin: 12px 0 8px;
   font-size: 46px;
   line-height: 1.04;
   letter-spacing: -0.04em;
@@ -59,13 +59,13 @@
 .heroStats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
   align-self: end;
 }
 
 .heroStatCard {
-  min-height: 92px;
-  padding: 14px 16px;
+  min-height: 44px;
+  padding: 5px 8px;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(10px);
@@ -74,27 +74,39 @@
 .heroStatLabel {
   display: block;
   color: rgba(255, 255, 255, 0.68);
-  font-size: 11px;
+  font-size: 9px;
+  line-height: 1;
 }
 
 .heroStatValue {
   display: block;
-  margin-top: 6px;
-  font-size: 16px;
-  line-height: 1.35;
+  margin-top: 1px;
+  font-size: 11px;
+  line-height: 1.05;
   font-weight: 700;
+  white-space: nowrap;
+  word-break: keep-all;
+  letter-spacing: -0.02em;
 }
 
 .summaryCard,
 .stepCard,
 .inputPanel,
+.reviewStageCard,
+.reviewResultCard,
+.downloadFlowCard,
 .reviewSummary,
 .memoPanel,
 .questionPanel {
   background: var(--surface);
-  border: 1px solid rgba(219, 228, 242, 0.9);
+  border: 1px solid rgba(156, 176, 209, 0.72);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow);
+  box-shadow: 0 8px 24px rgba(98, 122, 165, 0.08);
+}
+
+.stepFlowStack {
+  display: grid;
+  gap: 18px;
 }
 
 .stepCard {
@@ -140,9 +152,7 @@
 }
 
 .inputLayout {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 18px;
+  display: block;
 }
 
 .inputPanel {
@@ -151,10 +161,23 @@
 
 .reviewFlowPanel {
   min-height: 0;
+  padding: 22px 24px;
+}
+
+.reviewStageCard,
+.downloadFlowCard {
+  display: grid;
+  gap: 18px;
+}
+
+.reviewResultCard {
+  display: grid;
+  gap: 18px;
 }
 
 .panelLabel {
   display: inline-flex;
+  width: fit-content;
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
@@ -162,7 +185,9 @@
   background: #f3f7fd;
   color: var(--navy);
   font-size: 13px;
+  line-height: 1;
   font-weight: 700;
+  align-self: flex-start;
 }
 
 .panelTitle {
@@ -181,33 +206,39 @@
   margin-top: 22px;
   padding: 18px 20px;
   border-radius: 20px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(156, 176, 209, 0.72);
   background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.reviewQuestionHeader {
+  display: grid;
+  gap: 10px;
 }
 
 .currentGuidelinesCard {
   width: 100%;
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 24px;
-  margin: 2px 0 16px;
+  display: grid;
+  gap: 18px;
+  margin: 2px 0 0;
   padding: 24px 28px;
   border-radius: 28px;
-  border: 1px solid rgba(47, 128, 237, 0.12);
-  background:
-    radial-gradient(circle at top right, rgba(52, 88, 182, 0.12), transparent 26%),
-    linear-gradient(135deg, rgba(47, 128, 237, 0.08), transparent 45%),
-    linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
-  box-shadow: var(--shadow);
+  border: 1px solid rgba(110, 145, 200, 0.92);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  box-shadow: 0 10px 26px rgba(98, 122, 165, 0.11);
   min-height: 148px;
+}
+
+.currentGuidelinesTop {
+  display: grid;
+  gap: 18px;
+  align-items: start;
 }
 
 .currentGuidelinesCopy {
   display: grid;
   align-content: start;
   gap: 8px;
-  flex: 1;
+  min-width: 0;
 }
 
 .currentGuidelinesControls {
@@ -215,7 +246,8 @@
   justify-items: start;
   align-content: start;
   gap: 12px;
-  min-width: min(520px, 100%);
+  min-width: 0;
+  width: 100%;
 }
 
 .currentGuidelinesActionRow {
@@ -223,18 +255,27 @@
   flex-wrap: wrap;
   gap: 12px;
   align-items: center;
+  width: 100%;
+}
+
+.currentGuidelinesActionRow > * {
+  width: auto;
 }
 
 .currentGuidelinesEyebrow {
   display: inline-flex;
+  width: fit-content;
   align-items: center;
-  padding: 7px 12px;
+  gap: 0;
+  padding: 8px 13px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.75);
+  background: #eef3fc;
   color: var(--navy);
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 1;
   font-weight: 800;
   letter-spacing: 0.02em;
+  align-self: flex-start;
 }
 
 .currentGuidelinesTitle {
@@ -246,7 +287,7 @@
 }
 
 .currentGuidelinesText {
-  max-width: 460px;
+  max-width: 720px;
   margin: 0;
   color: var(--muted);
   font-size: 14px;
@@ -256,9 +297,13 @@
 .currentGuidelinesPreviewCard {
   padding: 18px 22px 22px;
   border-radius: 24px;
-  border: 1px solid rgba(47, 128, 237, 0.12);
-  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-  box-shadow: var(--shadow);
+  border: 1px solid rgba(110, 145, 200, 0.92);
+  background: linear-gradient(180deg, #eef5ff 0%, #dfeeff 100%);
+  box-shadow: 0 10px 26px rgba(98, 122, 165, 0.11);
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-gutter: stable;
 }
 
 .currentGuidelinesPreviewHeader {
@@ -273,16 +318,40 @@
   display: grid;
   justify-items: end;
   gap: 10px;
+  max-width: min(560px, 100%);
+}
+
+.currentGuidelinesPreviewHeaderActions .secondaryButton {
+  min-width: 118px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 13px;
 }
 
 .currentGuidelinesPreviewEyebrow {
   display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 7px 12px;
   border-radius: 999px;
   background: #edf4ff;
   color: var(--navy);
   font-size: 12px;
   font-weight: 800;
+}
+
+.currentGuidelinesPreviewEyebrowIcon {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #7aa9f0;
+  color: #fff;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 900;
+  flex: 0 0 auto;
 }
 
 .currentGuidelinesPreviewTitle {
@@ -302,12 +371,13 @@
 .currentGuidelinesPreviewGrid {
   display: grid;
   gap: 14px;
+  min-width: 1520px;
 }
 
 .currentGuidelinesPreviewSection {
   padding: 14px;
   border-radius: 20px;
-  border: 1px solid rgba(47, 128, 237, 0.1);
+  border: 1px solid rgba(134, 156, 192, 0.86);
   background: rgba(248, 251, 255, 0.84);
 }
 
@@ -341,14 +411,17 @@
 
 .currentGuidelinesPreviewTableWrap {
   max-height: 160px;
-  overflow: auto;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
   border-radius: 14px;
-  border: 1px solid rgba(47, 128, 237, 0.08);
+  border: 1px solid rgba(134, 156, 192, 0.82);
   background: #fff;
 }
 
 .currentGuidelinesPreviewTable {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
   font-size: 12px;
 }
@@ -378,7 +451,7 @@
 .currentGuidelinesPreviewEmptyPanel {
   padding: 22px;
   border-radius: 20px;
-  border: 1px dashed rgba(47, 128, 237, 0.2);
+  border: 1px dashed rgba(134, 156, 192, 0.82);
   background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
 }
 
@@ -478,6 +551,36 @@
   overflow-wrap: anywhere;
 }
 
+.currentGuidelinesInlineWarning {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 20px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 158, 11, 0.10);
+  background:
+    linear-gradient(135deg, rgba(255, 252, 244, 0.98), rgba(255, 247, 228, 0.92));
+  color: #b06b00;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 3px 8px rgba(245, 158, 11, 0.05);
+}
+
+.currentGuidelinesWarningIcon {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #f9c96a;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 900;
+  flex: 0 0 auto;
+}
+
 .uploadedFileList {
   display: grid;
   gap: 8px;
@@ -544,12 +647,6 @@
 .secondaryButton:disabled {
   cursor: not-allowed;
   opacity: 0.55;
-}
-
-.inputAside {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
 }
 
 .guideCard {
@@ -619,6 +716,7 @@
   padding: 16px;
   border-radius: 16px;
   background: var(--surface-alt);
+  border: 1px solid rgba(156, 176, 209, 0.65);
 }
 
 .summaryMetaLabel {
@@ -638,9 +736,45 @@
   font-size: 26px;
 }
 
-.memoList {
+.memoBoard {
+  margin-top: 6px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(156, 176, 209, 0.72);
+  background: #fbfcff;
+}
+
+.memoBoardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.memoBoardTitle {
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.memoBoardCount {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #edf4ff;
+  color: var(--navy);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.memoBoardBody {
   display: grid;
-  gap: 14px;
+  gap: 10px;
+  padding-top: 10px;
 }
 
 .questionList {
@@ -666,7 +800,7 @@
 }
 
 .questionIntro {
-  margin: -4px 0 18px;
+  margin: 0;
   color: var(--muted);
   font-size: 13px;
   line-height: 1.6;
@@ -684,11 +818,28 @@
   line-height: 1.5;
 }
 
-.memoCard {
-  padding: 18px;
-  border-radius: 18px;
-  background: #fbfcff;
-  border: 1px solid var(--line);
+.memoRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(156, 176, 209, 0.55);
+}
+
+.memoRow:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.memoRowContent {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.questionSpacer {
+  height: 20px;
 }
 
 .memoCardTop {
@@ -701,7 +852,7 @@
 
 .memoTitle {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .memoStatus {
@@ -721,7 +872,8 @@
 .memoDescription {
   margin: 0;
   color: var(--muted);
-  line-height: 1.6;
+  line-height: 1.45;
+  font-size: 13px;
 }
 
 .questionLabel {
@@ -777,15 +929,18 @@
 }
 
 .reviewResultCard {
-  display: flex;
-  flex-direction: column;
+  padding: 22px 24px;
+}
+
+.downloadFlowCard {
+  padding: 22px 24px;
 }
 
 .downloadOptionCard {
   padding: 16px 18px;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.58);
-  border: 1px solid rgba(47, 128, 237, 0.12);
+  border: 1px solid rgba(156, 176, 209, 0.72);
 }
 
 .downloadOptionCard + .downloadOptionCard {
@@ -842,7 +997,7 @@
 .productSearchResult {
   padding: 12px;
   border-radius: 14px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(156, 176, 209, 0.68);
   background: rgba(255, 255, 255, 0.82);
 }
 
@@ -991,6 +1146,21 @@
   padding: 16px;
   border-radius: 16px;
   background: var(--surface-alt);
+  border: 1px solid rgba(156, 176, 209, 0.65);
+}
+
+.finalSummaryBriefCard {
+  padding: 16px;
+  border-radius: 16px;
+  background: #fbfcff;
+  border: 1px solid rgba(156, 176, 209, 0.65);
+}
+
+.finalSummaryBrief {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .finalSummaryBlock + .finalSummaryBlock {

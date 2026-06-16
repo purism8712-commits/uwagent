@@ -1,10 +1,7 @@
 import styles from "./components.module.css";
-import {
-  sampleReviewMemos,
-  sampleReviewQuestions,
-  type SampleProductOption
-} from "@/lib/sample-data";
+import type { SampleProductOption } from "@/lib/sample-data";
 import type { DraftSummary } from "@/lib/draft-builder";
+import { buildReviewMemos, buildReviewQuestions } from "@/lib/review-content";
 
 type ReviewStageProps = {
   masterFileNames: string[];
@@ -47,31 +44,57 @@ export function ReviewStage({
   onDownloadMaster,
   onDownloadProduct
 }: ReviewStageProps) {
-  const hasUnansweredQuestion = sampleReviewQuestions.some(
-    (question) => !(answers[question.id] ?? "").trim()
-  );
   const normalizedKeyword = productName.trim().toLowerCase();
   const matchedProducts = normalizedKeyword
     ? productOptions.filter((product) =>
-        product.productName.toLowerCase().includes(normalizedKeyword)
+        [
+          product.productName,
+          product.productCode ?? "",
+          product.saleDate
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedKeyword)
       )
     : [];
+  const reviewMemos = buildReviewMemos({
+    masterFileNames,
+    changeFileNames,
+    rawInput,
+    productName
+  });
+  const reviewQuestions = buildReviewQuestions(
+    {
+      masterFileNames,
+      changeFileNames,
+      rawInput,
+      productName
+    },
+    reviewMemos
+  );
+  const hasUnansweredDynamicQuestion = reviewQuestions.some(
+    (question) => !(answers[question.id] ?? "").trim()
+  );
+  const beforeValueLabel = finalSummary?.beforeValue.replace(/^단일건\s*/, "") ?? "";
+  const afterValueLabel = finalSummary?.afterValue.replace(/^단일건\s*/, "") ?? "";
+  const finalSummaryBrief = finalSummary
+    ? `답변 ${finalSummary.appliedAnswers.length}개를 반영해 ${finalSummary.target} 단일건 한도를 ${beforeValueLabel}에서 ${afterValueLabel}으로 정리했고, 남은 검토 항목은 ${finalSummary.pendingNotes.length}건입니다.`
+    : "";
 
   return (
-    <section className={styles.inputLayout}>
-      <div className={`${styles.inputPanel} ${styles.reviewFlowPanel}`}>
+    <section className={styles.stepFlowStack}>
+      <article className={`${styles.reviewFlowPanel} ${styles.reviewStageCard}`}>
         <div className={styles.reviewSummaryTop}>
           <div>
-            <span className={styles.panelLabel}>STEP 2</span>
-            <h2 className={styles.panelTitle}>입력 초안 검토</h2>
+            <span className={styles.panelLabel}>STEP 3</span>
+            <h2 className={styles.panelTitle}>검토 메모 및 확인질문</h2>
           </div>
           <span className={styles.statusPill}>검토 필요 항목 있음</span>
         </div>
 
         <p className={styles.panelText}>
-          첫 화면 구조는 유지한 채, 입력한 변경안을 바탕으로 추가 확인이 필요한
-          질문만 이어서 받습니다. 모든 답변이 채워지면 최종 요약과 엑셀 초안을
-          생성할 수 있습니다.
+          입력한 변경안을 바탕으로 추가 확인이 필요한 질문만 이어서 받습니다.
+          질문은 카드 안에서 스크롤되며, 모든 답변이 채워지면 초안을 만들 수 있습니다.
         </p>
 
         <div className={styles.summaryMeta}>
@@ -102,14 +125,43 @@ export function ReviewStage({
         </div>
 
         <div className={styles.reviewQuestionBlock}>
-          <h3 className={styles.panelHeading}>확인 질문</h3>
-          <p className={styles.questionIntro}>
-            초안을 확정하기 전에 추가 확인이 필요한 항목을 한 번에 모았습니다. 아래
-            질문에 모두 답해주시면 최종 요약과 엑셀 초안을 함께 만들 수 있습니다.
-          </p>
+          <div className={styles.reviewQuestionHeader}>
+            <h3 className={styles.panelHeading}>추가 확인 질문</h3>
+            <p className={styles.questionIntro}>
+              검토 메모를 먼저 읽고, 아래 질문에 모두 답해주시면 초안 생성 단계로
+              넘어갈 수 있습니다.
+            </p>
+          </div>
           {submitError ? <p className={styles.errorBanner}>{submitError}</p> : null}
+
+          <section className={styles.memoBoard} aria-label="검토 메모">
+            <div className={styles.memoBoardHeader}>
+              <span className={styles.memoBoardTitle}>검토 메모</span>
+              <span className={styles.memoBoardCount}>{reviewMemos.length}개</span>
+            </div>
+            <div className={styles.memoBoardBody}>
+              {reviewMemos.map((memo) => (
+                <article className={styles.memoRow} key={memo.id}>
+                  <div className={styles.memoRowContent}>
+                    <h4 className={styles.memoTitle}>{memo.title}</h4>
+                    <p className={styles.memoDescription}>{memo.description}</p>
+                  </div>
+                  <span
+                    className={`${styles.memoStatus} ${
+                      memo.status === "참고" ? styles.memoStatusInfo : ""
+                    }`}
+                  >
+                    {memo.status}
+                  </span>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <div className={styles.questionSpacer} aria-hidden="true" />
+
           <div className={styles.questionList}>
-            {sampleReviewQuestions.map((question) => (
+            {reviewQuestions.map((question) => (
               <div className={styles.questionRow} key={question.id}>
                 <div className={styles.questionHeader}>
                   <span className={styles.questionLabel}>{question.label}</span>
@@ -135,52 +187,68 @@ export function ReviewStage({
               className={styles.primaryButton}
               type="button"
               onClick={onConfirmDraft}
-              disabled={hasUnansweredQuestion || isSubmitting || !isMasterCreated}
+              disabled={hasUnansweredDynamicQuestion || isSubmitting || !isMasterCreated}
             >
-              {isSubmitting ? "초안 생성 중..." : "초안 확정"}
+              {isSubmitting ? "초안 생성 중..." : "초안생성"}
             </button>
             {!isMasterCreated ? (
               <p className={styles.currentGuidelinesFootnote}>
-                STEP 0에서 통합 마스터를 먼저 만들어야 초안을 확정할 수 있습니다.
+                STEP 1에서 통합 마스터를 먼저 만들어야 초안을 생성할 수 있습니다.
               </p>
             ) : null}
           </div>
         </div>
-      </div>
+      </article>
 
-      <aside className={styles.inputAside}>
-        <div className={styles.guideCard}>
-          <span className={styles.guideStepLabel}>STEP 2</span>
-          <h3 className={styles.guideTitle}>검토메모</h3>
-          <div className={styles.memoList}>
-            {sampleReviewMemos.map((memo) => (
-              <article className={styles.memoCard} key={memo.id}>
-                <div className={styles.memoCardTop}>
-                  <h4 className={styles.memoTitle}>{memo.title}</h4>
-                  <span
-                    className={`${styles.memoStatus} ${
-                      memo.status === "참고" ? styles.memoStatusInfo : ""
-                    }`}
-                  >
-                    {memo.status}
-                  </span>
-                </div>
-                <p className={styles.memoDescription}>{memo.description}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-
-        {finalSummary ? (
-          <div
-            className={`${styles.guideCard} ${styles.guideCardAlt} ${styles.reviewResultCard}`}
-          >
+      {finalSummary ? (
+        <>
+          <article className={`${styles.reviewFlowPanel} ${styles.reviewResultCard}`}>
             <div className={styles.finalSummaryTop}>
               <div>
-                <span className={styles.guideStepLabel}>STEP 3</span>
-                <h3 className={styles.guideTitle}>최종 파일 미리보기</h3>
+                <span className={styles.panelLabel}>STEP 4</span>
+                <h3 className={styles.panelTitle}>초안 생성 결과</h3>
+              </div>
+              <span className={styles.statusPill}>초안 생성 완료</span>
+            </div>
+
+            <div className={styles.finalSummaryGrid}>
+              <div className={styles.finalSummaryItem}>
+                <span className={styles.summaryMetaLabel}>변경 대상</span>
+                <strong className={styles.summaryMetaValue}>{finalSummary.target}</strong>
+              </div>
+              <div className={styles.finalSummaryItem}>
+                <span className={styles.summaryMetaLabel}>변경 전</span>
+                <strong className={styles.summaryMetaValue}>{finalSummary.beforeValue}</strong>
+              </div>
+              <div className={styles.finalSummaryItem}>
+                <span className={styles.summaryMetaLabel}>변경 후</span>
+                <strong className={styles.summaryMetaValue}>{finalSummary.afterValue}</strong>
               </div>
             </div>
+
+            <div className={styles.finalSummaryBriefCard}>
+              <h4 className={styles.finalSummaryHeading}>반영 요약</h4>
+              <p className={styles.finalSummaryBrief}>{finalSummaryBrief}</p>
+            </div>
+
+            <div className={styles.finalSummaryBlock}>
+              <h4 className={styles.finalSummaryHeading}>남은 검토 필요 항목</h4>
+              <ul className={styles.finalSummaryList}>
+                {finalSummary.pendingNotes.map((item, index) => (
+                  <li key={`${item}-${index}`}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          </article>
+
+          <article className={`${styles.reviewFlowPanel} ${styles.downloadFlowCard}`}>
+            <div className={styles.finalSummaryTop}>
+              <div>
+                <span className={styles.panelLabel}>STEP 5</span>
+                <h3 className={styles.panelTitle}>통합 마스터와 상품 추출 다운로드</h3>
+              </div>
+            </div>
+
             <div className={styles.downloadOptionCard}>
               <div className={styles.downloadOptionTop}>
                 <div>
@@ -204,6 +272,7 @@ export function ReviewStage({
                 다운로드가 시작되면 브라우저의 파일 열기/저장 안내를 확인해 주세요.
               </p>
             </div>
+
             <div className={styles.downloadOptionCard}>
               <div className={styles.downloadOptionTop}>
                 <div>
@@ -248,6 +317,7 @@ export function ReviewStage({
                                   {product.productName}
                                 </span>
                                 <span className={styles.productCandidateMeta}>
+                                  {product.productCode ? `상품코드 ${product.productCode} · ` : ""}
                                   판매일자 {product.saleDate}
                                 </span>
                                 <span className={styles.productCandidateSummary}>
@@ -279,48 +349,9 @@ export function ReviewStage({
                 다운로드가 시작되면 브라우저의 파일 열기/저장 안내를 확인해 주세요.
               </p>
             </div>
-            <div className={styles.finalSummaryGrid}>
-              <div className={styles.finalSummaryItem}>
-                <span className={styles.summaryMetaLabel}>변경 대상</span>
-                <strong className={styles.summaryMetaValue}>{finalSummary.target}</strong>
-              </div>
-              <div className={styles.finalSummaryItem}>
-                <span className={styles.summaryMetaLabel}>변경 전</span>
-                <strong className={styles.summaryMetaValue}>{finalSummary.beforeValue}</strong>
-              </div>
-              <div className={styles.finalSummaryItem}>
-                <span className={styles.summaryMetaLabel}>변경 후</span>
-                <strong className={styles.summaryMetaValue}>{finalSummary.afterValue}</strong>
-              </div>
-            </div>
-            <div className={styles.finalSummaryBlock}>
-              <h4 className={styles.finalSummaryHeading}>반영된 답변</h4>
-              <ul className={styles.finalSummaryList}>
-                {finalSummary.appliedAnswers.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </div>
-            <div className={styles.finalSummaryBlock}>
-              <h4 className={styles.finalSummaryHeading}>남은 검토 필요 항목</h4>
-              <ul className={styles.finalSummaryList}>
-                {finalSummary.pendingNotes.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        ) : (
-          <div className={`${styles.guideCard} ${styles.guideCardAlt}`}>
-            <span className={styles.guideStepLabel}>STEP 3</span>
-            <h3 className={styles.guideTitle}>통합 마스터와 상품 추출 다운로드</h3>
-            <p className={styles.guideText}>
-              질문 답변을 반영하면 하나의 통합 마스터 파일을 만들고, 이후 상품명을
-              입력해 해당 상품만 즉시 추출 다운로드하는 흐름으로 이어집니다.
-            </p>
-          </div>
-        )}
-      </aside>
+          </article>
+        </>
+      ) : null}
     </section>
   );
 }

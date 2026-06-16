@@ -83,117 +83,130 @@ export function InputStage({
   onComplete
 }: InputStageProps) {
   return (
-    <section className={styles.inputLayout}>
+    <section className={styles.stepFlowStack}>
       <div className={styles.currentGuidelinesCard}>
-        <div className={styles.currentGuidelinesCopy}>
-          <span className={styles.currentGuidelinesEyebrow}>STEP 0</span>
-          <h3 className={styles.currentGuidelinesTitle}>전체 통합 마스터 파일 만들기</h3>
-          <p className={styles.currentGuidelinesText}>
-            여러 상품의 가이드라인 엑셀을 한 번에 올리면, 공통 코어가 이를 표준
-            템플릿으로 바꾼 뒤 하나의 통합 마스터 파일로 묶어 줍니다.
-          </p>
-        </div>
-        <div className={styles.currentGuidelinesControls}>
-          <div className={styles.currentGuidelinesActionRow}>
-            <label className={styles.uploadButton} htmlFor="master-excel-upload">
-              파일 여러 개 선택
-            </label>
-            <input
-              id="master-excel-upload"
-              aria-label="가이드라인 엑셀 업로드"
-              className={styles.fileInput}
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              multiple
-              onChange={(event) =>
-                onMasterFileChange(Array.from(event.target.files ?? []))
-              }
-            />
-            <button
-              className={styles.primaryButton}
-              type="button"
-              onClick={onCreateMasterWorkbook}
-              disabled={isCreatingMaster || masterFileNames.length === 0}
-            >
-              {isCreatingMaster ? "통합 마스터 생성 중..." : "전체 통합 마스터 파일 만들기"}
-            </button>
-          </div>
-          <div className={styles.fileName}>
-            {masterFileNames.length > 0
-              ? `${masterFileNames.length}개 기준 파일 선택됨`
-              : "아직 가이드라인 파일이 선택되지 않았습니다."}
-          </div>
-          {masterFileNames.length > 0 ? (
-            <ul className={styles.uploadedFileList}>
-              {masterFileNames.map((name) => (
-                <li key={name}>{name}</li>
-              ))}
-            </ul>
-          ) : null}
-          <p className={styles.currentGuidelinesFootnote}>
-            선택한 파일을 표준 템플릿으로 정리해 내부 저장소에 먼저 보관한 뒤,
-            이후 변경 내용은 이 저장본을 기준으로 반영합니다.
-          </p>
-          {isMasterCreated ? (
-            <p className={styles.currentGuidelinesSuccess}>통합 마스터 파일이 저장되었습니다.</p>
-          ) : null}
-          {previewError ? <p className={styles.currentGuidelinesError}>{previewError}</p> : null}
-        </div>
-      </div>
-
-      <div className={styles.currentGuidelinesPreviewCard}>
-        <div className={styles.currentGuidelinesPreviewHeader}>
-          <div>
-            <span className={styles.currentGuidelinesPreviewEyebrow}>저장된 테이블 미리보기</span>
-            <h3 className={styles.currentGuidelinesPreviewTitle}>전체 통합 마스터 파일 구조</h3>
-          </div>
-          <div className={styles.currentGuidelinesPreviewHeaderActions}>
-            <p className={styles.currentGuidelinesPreviewText}>
-              저장된 통합 마스터를 불러와 시트별 표를 바로 확인할 수 있습니다.
+        <div className={styles.currentGuidelinesTop}>
+          <div className={styles.currentGuidelinesCopy}>
+            <span className={styles.panelLabel}>STEP 1</span>
+            <h3 className={styles.currentGuidelinesTitle}>전체 통합 마스터 파일 만들기</h3>
+            <p className={styles.currentGuidelinesText}>
+              여러 상품의 가이드라인 엑셀을 한 번에 올리면, 공통 코어가 이를 표준
+              템플릿으로 바꾼 뒤 하나의 통합 마스터 파일로 묶어 줍니다.
             </p>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={onPreviewMasterWorkbook}
-              disabled={isPreviewLoading || masterFileNames.length === 0}
-            >
-              {isPreviewLoading ? "미리보기 불러오는 중..." : "미리보기"}
-            </button>
+          </div>
+          <div className={styles.currentGuidelinesControls}>
+            <div className={styles.currentGuidelinesActionRow}>
+              <label className={styles.uploadButton} htmlFor="master-excel-upload">
+                파일 여러 개 선택
+              </label>
+              <input
+                id="master-excel-upload"
+                aria-label="가이드라인 엑셀 업로드"
+                className={styles.fileInput}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                multiple
+                onChange={(event) =>
+                  onMasterFileChange(Array.from(event.target.files ?? []))
+                }
+              />
+              <button
+                className={styles.primaryButton}
+                type="button"
+                onClick={onCreateMasterWorkbook}
+                disabled={isCreatingMaster || masterFileNames.length === 0}
+              >
+                {isCreatingMaster ? "통합 마스터 생성 중..." : "전체 통합 마스터 파일 만들기"}
+              </button>
+              {masterFileNames.length === 0 ? (
+                <span className={styles.currentGuidelinesInlineWarning}>
+                  <span className={styles.currentGuidelinesWarningIcon} aria-hidden="true">
+                    !
+                  </span>
+                  <span>아직 가이드라인 파일이 선택되지 않았습니다.</span>
+                </span>
+              ) : null}
+            </div>
+            {masterFileNames.length > 0 ? (
+              <div className={styles.fileName}>{`${masterFileNames.length}개 기준 파일 선택됨`}</div>
+            ) : null}
+            {masterFileNames.length > 0 ? (
+              <ul className={styles.uploadedFileList}>
+                {masterFileNames.map((name) => (
+                  <li key={name}>{name}</li>
+                ))}
+              </ul>
+            ) : null}
+            <p className={styles.currentGuidelinesFootnote}>
+              선택한 파일을 표준 템플릿으로 정리해 내부 저장소에 먼저 보관한 뒤,
+              이후 변경 내용은 이 저장본을 기준으로 반영합니다.
+            </p>
+            {isMasterCreated ? (
+              <p className={styles.currentGuidelinesSuccess}>통합 마스터 파일이 저장되었습니다.</p>
+            ) : null}
+            {previewError ? <p className={styles.currentGuidelinesError}>{previewError}</p> : null}
           </div>
         </div>
 
-        {masterPreview ? (
-          <div className={styles.currentGuidelinesPreviewGrid}>
-            {previewSections.map((section) => {
-              const rows = masterPreview[section.key] as Record<string, string | number>[];
+        <div className={styles.currentGuidelinesPreviewCard}>
+          <div className={styles.currentGuidelinesPreviewHeader}>
+            <div>
+              <span className={styles.currentGuidelinesPreviewEyebrow}>
+                <span className={styles.currentGuidelinesPreviewEyebrowIcon} aria-hidden="true">
+                  i
+                </span>
+                <span>저장된 테이블 미리보기</span>
+              </span>
+              <h3 className={styles.currentGuidelinesPreviewTitle}>전체 통합 마스터 파일 구조</h3>
+            </div>
+            <div className={styles.currentGuidelinesPreviewHeaderActions}>
+              <p className={styles.currentGuidelinesPreviewText}>
+                저장된 통합 마스터를 불러와 시트별 표를 바로 확인할 수 있습니다.
+              </p>
+              <button
+                className={styles.secondaryButton}
+                type="button"
+                onClick={onPreviewMasterWorkbook}
+                disabled={isPreviewLoading || masterFileNames.length === 0}
+              >
+                {isPreviewLoading ? "미리보기 불러오는 중..." : "미리보기"}
+              </button>
+            </div>
+          </div>
 
-              return (
-                <article className={styles.currentGuidelinesPreviewSection} key={section.key}>
-                  <div className={styles.currentGuidelinesPreviewSectionTop}>
-                    <div>
-                      <h4 className={styles.currentGuidelinesPreviewSectionTitle}>{section.label}</h4>
-                      <p className={styles.currentGuidelinesPreviewSectionNote}>{section.note}</p>
+          {masterPreview ? (
+            <div className={styles.currentGuidelinesPreviewGrid}>
+              {previewSections.map((section) => {
+                const rows = masterPreview[section.key] as Record<string, string | number>[];
+
+                return (
+                  <article className={styles.currentGuidelinesPreviewSection} key={section.key}>
+                    <div className={styles.currentGuidelinesPreviewSectionTop}>
+                      <div>
+                        <h4 className={styles.currentGuidelinesPreviewSectionTitle}>{section.label}</h4>
+                        <p className={styles.currentGuidelinesPreviewSectionNote}>{section.note}</p>
+                      </div>
+                      <span className={styles.currentGuidelinesPreviewBadge}>{rows.length} rows</span>
                     </div>
-                    <span className={styles.currentGuidelinesPreviewBadge}>{rows.length} rows</span>
-                  </div>
-                  {renderPreviewRows(rows)}
-                </article>
-              );
-            })}
-          </div>
-        ) : (
-          <div className={styles.currentGuidelinesPreviewEmptyPanel}>
-            <p className={styles.currentGuidelinesPreviewEmptyTitle}>미리보기를 준비해 주세요</p>
-            <p className={styles.currentGuidelinesPreviewEmptyText}>
-              STEP 0에서 가이드라인 엑셀을 업로드한 뒤 미리보기 버튼을 누르면,
-              저장된 통합 마스터 시트를 이 영역에서 바로 볼 수 있습니다.
-            </p>
-          </div>
-        )}
+                    {renderPreviewRows(rows)}
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className={styles.currentGuidelinesPreviewEmptyPanel}>
+              <p className={styles.currentGuidelinesPreviewEmptyTitle}>미리보기를 준비해 주세요</p>
+              <p className={styles.currentGuidelinesPreviewEmptyText}>
+                STEP 1에서 가이드라인 엑셀을 업로드한 뒤 미리보기 버튼을 누르면,
+                저장된 통합 마스터 시트를 이 영역에서 바로 볼 수 있습니다.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className={styles.inputPanel}>
-        <span className={styles.panelLabel}>STEP 1</span>
+        <span className={styles.panelLabel}>STEP 2</span>
         <h2 className={styles.panelTitle}>변경내용 입력</h2>
         <p className={styles.panelText}>
           변경된 엑셀 파일을 올리거나, 표 또는 자연어로 바뀐 기준을 입력해 주세요.
@@ -260,25 +273,6 @@ export function InputStage({
           </button>
         </div>
       </div>
-
-      <aside className={styles.inputAside}>
-        <div className={styles.guideCard}>
-          <span className={styles.guideStepLabel}>STEP 2</span>
-          <h3 className={styles.guideTitle}>입력 후 자동으로 초안 검토 단계로 이동합니다.</h3>
-          <p className={styles.guideText}>
-            에이전트는 입력 내용을 공통 양식으로 읽고, 사람 확인이 필요한 내용은
-            검토메모와 질문으로 정리합니다.
-          </p>
-        </div>
-        <div className={`${styles.guideCard} ${styles.guideCardAlt}`}>
-          <span className={styles.guideStepLabel}>STEP 2</span>
-          <h3 className={styles.guideTitle}>검토가 필요한 정보만 다시 물어봅니다.</h3>
-          <p className={styles.guideText}>
-            충돌하는 수치, 예외 주석, 변경 이력처럼 후속 판단에 큰 영향을 주는
-            항목은 다음 화면에서 바로 답변할 수 있습니다.
-          </p>
-        </div>
-      </aside>
     </section>
   );
 }

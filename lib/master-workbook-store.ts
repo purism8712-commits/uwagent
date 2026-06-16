@@ -43,7 +43,10 @@ function normalizeSnapshot(value: unknown): MasterWorkbookSnapshot | null {
             )
           )
         : {},
-      productName: typeof request.productName === "string" ? request.productName : ""
+      productName: typeof request.productName === "string" ? request.productName : "",
+      uploadedFiles: Array.isArray(request.uploadedFiles)
+        ? request.uploadedFiles.filter((item): item is string => typeof item === "string")
+        : uploadedFiles
     },
     createdAt: typeof value.createdAt === "string" ? value.createdAt : new Date().toISOString()
   };
