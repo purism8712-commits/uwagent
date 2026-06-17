@@ -8,7 +8,10 @@ import { StepProgressBar } from "@/components/step-progress-bar";
 import styles from "@/components/components.module.css";
 import { canUseAgentScope, clearAuthSession } from "@/lib/session";
 import type { DraftSummary, DraftWorkbookData } from "@/lib/draft-builder";
-import { extractProductCandidatesFromFiles } from "@/lib/product-candidate-parser";
+import {
+  buildFallbackProductCandidates,
+  extractProductCandidatesFromFiles
+} from "@/lib/product-candidate-parser";
 import { sampleProductOptions } from "@/lib/sample-data";
 import type { SampleProductOption } from "@/lib/sample-data";
 import type { AuthSession } from "@/lib/session";
@@ -39,6 +42,7 @@ export default function HomePage({ userSession }: HomePageProps) {
   const [isDownloadingProduct, setIsDownloadingProduct] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [parsedMasterProductOptions, setParsedMasterProductOptions] = useState<ParsedProductCandidate[]>([]);
+  const [hasRestoredStoredMaster, setHasRestoredStoredMaster] = useState(false);
   const department = userSession?.department ?? "";
   const canUseCommonCore = canUseAgentScope(department, "common-core");
   const masterPrimaryFileName = masterFileNames[0] ?? "";
@@ -60,10 +64,11 @@ export default function HomePage({ userSession }: HomePageProps) {
     };
 
     sampleProductOptions.forEach((option) => upsert(option));
+    buildFallbackProductCandidates(masterFileNames).forEach((option) => upsert(option, true));
     parsedMasterProductOptions.forEach((option) => upsert(option, true));
 
     return Array.from(merged.values());
-  }, [parsedMasterProductOptions]);
+  }, [masterFileNames, parsedMasterProductOptions]);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,6 +97,68 @@ export default function HomePage({ userSession }: HomePageProps) {
       cancelled = true;
     };
   }, [masterFiles]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (hasRestoredStoredMaster) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/master-workbook");
+        if (!response.ok) {
+          if (!cancelled) {
+            setHasRestoredStoredMaster(true);
+          }
+          return;
+        }
+
+        const data = (await response.json()) as {
+          snapshot?: {
+            uploadedFiles?: string[];
+            request?: {
+              masterProducts?: ParsedProductCandidate[];
+            };
+          };
+        };
+
+        if (cancelled) {
+          return;
+        }
+
+        const snapshotFileNames = Array.isArray(data.snapshot?.uploadedFiles)
+          ? data.snapshot.uploadedFiles
+          : [];
+        const snapshotProducts = Array.isArray(data.snapshot?.request?.masterProducts)
+          ? data.snapshot.request.masterProducts
+          : [];
+
+        if (snapshotFileNames.length > 0) {
+          setMasterFileNames(snapshotFileNames);
+          setIsMasterCreated(true);
+          setParsedMasterProductOptions(
+            snapshotProducts.length > 0
+              ? snapshotProducts
+              : buildFallbackProductCandidates(snapshotFileNames)
+          );
+        }
+      } catch {
+        // Ignore restore failures and let the page continue with empty local state.
+      } finally {
+        if (!cancelled) {
+          setHasRestoredStoredMaster(true);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasRestoredStoredMaster]);
 
   async function handleCreateMasterWorkbook() {
     if (masterFileNames.length === 0) {
@@ -149,9 +216,33 @@ export default function HomePage({ userSession }: HomePageProps) {
         return;
       }
 
-      const data = (await response.json()) as { preview?: DraftWorkbookData };
+      const data = (await response.json()) as {
+        preview?: DraftWorkbookData;
+        snapshot?: {
+          uploadedFiles?: string[];
+          request?: {
+            masterProducts?: ParsedProductCandidate[];
+          };
+        };
+      };
       if (data.preview) {
         setMasterPreview(data.preview);
+        const snapshotFileNames = Array.isArray(data.snapshot?.uploadedFiles)
+          ? data.snapshot.uploadedFiles
+          : [];
+        const snapshotProducts = Array.isArray(data.snapshot?.request?.masterProducts)
+          ? data.snapshot.request.masterProducts
+          : [];
+
+        if (snapshotFileNames.length > 0) {
+          setMasterFileNames(snapshotFileNames);
+        }
+
+        setParsedMasterProductOptions(
+          snapshotProducts.length > 0
+            ? snapshotProducts
+            : buildFallbackProductCandidates(snapshotFileNames)
+        );
       } else {
         setPreviewError("미리보기 데이터를 불러오지 못했습니다.");
       }
@@ -163,8 +254,6 @@ export default function HomePage({ userSession }: HomePageProps) {
   }
 
   function startDirectDownload(downloadUrl: string, fileName: string) {
-    const isJsdom = navigator.userAgent.toLowerCase().includes("jsdom");
-
     const link = document.createElement("a");
     link.href = downloadUrl;
     link.download = fileName;
@@ -173,13 +262,6 @@ export default function HomePage({ userSession }: HomePageProps) {
     document.body.append(link);
     link.click();
     link.remove();
-
-    if (!isJsdom) {
-      window.setTimeout(() => {
-        // 직접 링크 방식이 막힌 환경에서는 서버 첨부 응답으로 한 번 더 시도한다.
-        window.location.assign(downloadUrl);
-      }, 0);
-    }
   }
 
   async function handleDownloadMaster() {
@@ -234,7 +316,8 @@ export default function HomePage({ userSession }: HomePageProps) {
         body: JSON.stringify({
           fileName: primaryFileName,
           rawInput,
-          answers
+          answers,
+          masterProducts: parsedMasterProductOptions
         })
       });
 
@@ -254,28 +337,13 @@ export default function HomePage({ userSession }: HomePageProps) {
 
   return (
     <main className={styles.pageShell}>
-      <HeroSection />
-      {userSession ? (
-        <section className={styles.sessionBar}>
-          <div className={styles.sessionCopy}>
-            <span className={styles.sessionLabel}>로그인 정보</span>
-            <strong className={styles.sessionName}>
-              {userSession.name} · {userSession.department}
-            </strong>
-            <span className={styles.sessionMeta}>사번 {userSession.employeeId}</span>
-          </div>
-          <button
-            className={styles.secondaryButton}
-            type="button"
-            onClick={() => {
-              clearAuthSession();
-              window.location.assign("/");
-            }}
-          >
-            로그아웃
-          </button>
-        </section>
-      ) : null}
+      <HeroSection
+        userSession={userSession}
+        onLogout={() => {
+          clearAuthSession();
+          window.location.assign("/");
+        }}
+      />
       <StepProgressBar step={step} isDraftReady={Boolean(finalSummary)} />
       <div className={styles.stepFlowStack}>
         <InputStage
@@ -293,6 +361,17 @@ export default function HomePage({ userSession }: HomePageProps) {
             setMasterFiles(files);
             setMasterFileNames(files.map((file) => file.name));
             setChangeFileNames([]);
+            setAnswers({});
+            setFinalSummary(null);
+            setMasterPreview(null);
+            setStep("input");
+            setIsMasterCreated(false);
+            setSubmitError("");
+            setPreviewError("");
+          }}
+          onResetMasterFiles={() => {
+            setMasterFiles([]);
+            setMasterFileNames([]);
             setAnswers({});
             setFinalSummary(null);
             setMasterPreview(null);
@@ -322,6 +401,7 @@ export default function HomePage({ userSession }: HomePageProps) {
             isMasterCreated={isMasterCreated}
             productName={productName}
             productOptions={productOptions}
+            masterProducts={parsedMasterProductOptions}
             isDownloadingMaster={isDownloadingMaster}
             isDownloadingProduct={isDownloadingProduct}
             onAnswerChange={(id, value) =>

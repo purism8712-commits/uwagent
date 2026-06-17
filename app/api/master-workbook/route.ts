@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { buildDraftWorkbookData } from "@/lib/draft-builder";
 import {
+  hasResolvedMasterProducts,
+  hydrateMasterProductsFromData
+} from "@/lib/master-product-hydrator";
+import {
   masterWorkbookStore,
   type MasterWorkbookSnapshot
 } from "@/lib/master-workbook-store";
@@ -71,9 +75,27 @@ export async function GET() {
     );
   }
 
+  const needsHydration =
+    snapshot.uploadedFiles.length > 0 &&
+    !hasResolvedMasterProducts(snapshot.request.masterProducts ?? []);
+
+  const resolvedSnapshot = needsHydration
+    ? {
+        ...snapshot,
+        request: {
+          ...snapshot.request,
+          masterProducts: await hydrateMasterProductsFromData(snapshot.uploadedFiles)
+        }
+      }
+    : snapshot;
+
+  if (needsHydration) {
+    await masterWorkbookStore.save(resolvedSnapshot);
+  }
+
   return NextResponse.json({
     ok: true,
-    snapshot,
-    preview: buildDraftWorkbookData(snapshot.request)
+    snapshot: resolvedSnapshot,
+    preview: buildDraftWorkbookData(resolvedSnapshot.request, { mode: "master" })
   });
 }

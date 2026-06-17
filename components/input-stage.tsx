@@ -1,3 +1,4 @@
+import { useState } from "react";
 import styles from "./components.module.css";
 import type { DraftWorkbookData } from "@/lib/draft-builder";
 
@@ -13,6 +14,7 @@ type InputStageProps = {
   previewError: string;
   onRawInputChange: (value: string) => void;
   onMasterFileChange: (files: File[]) => void;
+  onResetMasterFiles: () => void;
   onChangeFileChange: (files: File[]) => void;
   onCreateMasterWorkbook: () => void;
   onPreviewMasterWorkbook: () => void;
@@ -32,6 +34,38 @@ const previewSections: Array<{
 ];
 
 function renderPreviewRows(rows: Record<string, string | number>[]) {
+  return renderPreviewRowsWithOptions(rows, {});
+}
+
+function buildNoteTooltipText(noteIdCell: string, noteTooltipById?: Map<string, string>) {
+  const noteIds = Array.from(
+    new Set(
+      noteIdCell
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean)
+    )
+  );
+
+  if (noteIds.length === 0 || !noteTooltipById) {
+    return "";
+  }
+
+  return noteIds
+    .map((id) => {
+      const noteText = noteTooltipById.get(id)?.trim();
+      return noteText ? `${id}: ${noteText}` : id;
+    })
+    .join("\n");
+}
+
+function renderPreviewRowsWithOptions(
+  rows: Record<string, string | number>[],
+  options: {
+    sectionKey?: keyof DraftWorkbookData;
+    noteTooltipById?: Map<string, string>;
+  }
+) {
   if (rows.length === 0) {
     return <p className={styles.currentGuidelinesPreviewEmpty}>표시할 데이터가 없습니다.</p>;
   }
@@ -49,7 +83,12 @@ function renderPreviewRows(rows: Record<string, string | number>[]) {
         <thead>
           <tr>
             {columns.map((column) => (
-              <th key={column}>{column}</th>
+              <th
+                className={column === "보험코드" ? styles.currentGuidelinesPreviewInsuranceCodeCell : undefined}
+                key={column}
+              >
+                {column}
+              </th>
             ))}
           </tr>
         </thead>
@@ -57,7 +96,17 @@ function renderPreviewRows(rows: Record<string, string | number>[]) {
           {rows.map((row, rowIndex) => (
             <tr key={`${rowIndex}-${columns.join("-")}`}>
               {columns.map((column) => (
-                <td key={column}>{String(row[column] ?? "")}</td>
+                <td
+                  className={column === "보험코드" ? styles.currentGuidelinesPreviewInsuranceCodeCell : undefined}
+                  key={column}
+                  title={
+                    options.sectionKey === "ruleMaster" && column === "주석ID"
+                      ? buildNoteTooltipText(String(row[column] ?? ""), options.noteTooltipById)
+                      : undefined
+                  }
+                >
+                  {String(row[column] ?? "")}
+                </td>
               ))}
             </tr>
           ))}
@@ -79,11 +128,62 @@ export function InputStage({
   previewError,
   onRawInputChange,
   onMasterFileChange,
+  onResetMasterFiles,
   onChangeFileChange,
   onCreateMasterWorkbook,
   onPreviewMasterWorkbook,
   onComplete
 }: InputStageProps) {
+  const [activePreviewSection, setActivePreviewSection] =
+    useState<keyof DraftWorkbookData>("overview");
+  const [ruleMasterFilter, setRuleMasterFilter] = useState("");
+  const [ruleMasterSpecialFilter, setRuleMasterSpecialFilter] = useState("");
+  const [masterUploadKey, setMasterUploadKey] = useState(0);
+  const noteTooltipById = new Map(
+    (masterPreview?.noteMaster ?? []).map((row) => [
+      String(row["Note ID"] ?? "").trim(),
+      String(row["주석 원문"] ?? "").trim()
+    ])
+  );
+
+  function getPreviewRows(sectionKey: keyof DraftWorkbookData) {
+    const rows = masterPreview?.[sectionKey] as Record<string, string | number>[] | undefined;
+
+    if (!rows) {
+      return [];
+    }
+
+    if (sectionKey !== "ruleMaster") {
+      return rows;
+    }
+
+    const normalizedFilter = ruleMasterFilter.trim().toLowerCase();
+    const normalizedSpecialFilter = ruleMasterSpecialFilter.trim().toLowerCase();
+
+    return rows.filter((row) => {
+      const productMatch =
+        !normalizedFilter ||
+        String(row.상품명 ?? "")
+          .toLowerCase()
+          .includes(normalizedFilter);
+      const specialMatch =
+        !normalizedSpecialFilter ||
+        String(row.특약명 ?? "")
+          .toLowerCase()
+          .includes(normalizedSpecialFilter);
+
+      return productMatch && specialMatch;
+    });
+  }
+
+  function handleResetMasterFiles() {
+    setRuleMasterFilter("");
+    setRuleMasterSpecialFilter("");
+    setActivePreviewSection("overview");
+    setMasterUploadKey((current) => current + 1);
+    onResetMasterFiles();
+  }
+
   return (
     <section className={styles.stepFlowStack}>
       <div className={styles.currentGuidelinesCard}>
@@ -102,6 +202,7 @@ export function InputStage({
                 파일 여러 개 선택
               </label>
               <input
+                key={masterUploadKey}
                 id="master-excel-upload"
                 aria-label="가이드라인 엑셀 업로드"
                 className={styles.fileInput}
@@ -119,6 +220,15 @@ export function InputStage({
                 disabled={isActionDisabled || isCreatingMaster || masterFileNames.length === 0}
               >
                 {isCreatingMaster ? "통합 마스터 생성 중..." : "전체 통합 마스터 파일 만들기"}
+              </button>
+              <button
+                className={styles.resetIconButton}
+                type="button"
+                onClick={handleResetMasterFiles}
+                aria-label="선택 파일 초기화"
+                title="선택 파일 초기화"
+              >
+                ↻
               </button>
               {masterFileNames.length === 0 ? (
                 <span className={styles.currentGuidelinesInlineWarning}>
@@ -177,12 +287,39 @@ export function InputStage({
           </div>
 
           {masterPreview ? (
-            <div className={styles.currentGuidelinesPreviewGrid}>
+            <div className={styles.currentGuidelinesPreviewTabsPanel}>
+              <div className={styles.currentGuidelinesPreviewTabs} role="tablist" aria-label="통합 마스터 미리보기 탭">
+                {previewSections.map((section) => {
+                  const rows = getPreviewRows(section.key);
+                  const isActive = activePreviewSection === section.key;
+
+                  return (
+                    <button
+                      key={section.key}
+                      className={`${styles.currentGuidelinesPreviewTab} ${
+                        isActive ? styles.currentGuidelinesPreviewTabActive : ""
+                      }`}
+                      role="tab"
+                      type="button"
+                      aria-selected={isActive}
+                      onClick={() => setActivePreviewSection(section.key)}
+                    >
+                      <span className={styles.currentGuidelinesPreviewTabLabel}>{section.label}</span>
+                      <span className={styles.currentGuidelinesPreviewTabMeta}>{rows.length} rows</span>
+                    </button>
+                  );
+                })}
+              </div>
+
               {previewSections.map((section) => {
-                const rows = masterPreview[section.key] as Record<string, string | number>[];
+                if (section.key !== activePreviewSection) {
+                  return null;
+                }
+
+                const rows = getPreviewRows(section.key);
 
                 return (
-                  <article className={styles.currentGuidelinesPreviewSection} key={section.key}>
+                  <article className={styles.currentGuidelinesPreviewSection} key={section.key} role="tabpanel">
                     <div className={styles.currentGuidelinesPreviewSectionTop}>
                       <div>
                         <h4 className={styles.currentGuidelinesPreviewSectionTitle}>{section.label}</h4>
@@ -190,7 +327,40 @@ export function InputStage({
                       </div>
                       <span className={styles.currentGuidelinesPreviewBadge}>{rows.length} rows</span>
                     </div>
-                    {renderPreviewRows(rows)}
+                    {section.key === "ruleMaster" ? (
+                      <div className={styles.currentGuidelinesPreviewFilterRow}>
+                        <div className={styles.currentGuidelinesPreviewFilterField}>
+                          <label className={styles.currentGuidelinesPreviewFilterLabel} htmlFor="rule-master-filter">
+                            상품명 필터
+                          </label>
+                          <input
+                            id="rule-master-filter"
+                            className={styles.currentGuidelinesPreviewFilterInput}
+                            type="text"
+                            value={ruleMasterFilter}
+                            onChange={(event) => setRuleMasterFilter(event.target.value)}
+                            placeholder="예: 건강하고, 실버보험"
+                          />
+                        </div>
+                        <div className={styles.currentGuidelinesPreviewFilterField}>
+                          <label className={styles.currentGuidelinesPreviewFilterLabel} htmlFor="rule-master-special-filter">
+                            특약명 필터
+                          </label>
+                          <input
+                            id="rule-master-special-filter"
+                            className={styles.currentGuidelinesPreviewFilterInput}
+                            type="text"
+                            value={ruleMasterSpecialFilter}
+                            onChange={(event) => setRuleMasterSpecialFilter(event.target.value)}
+                            placeholder="예: 주보험, 소액암진단"
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                    {renderPreviewRowsWithOptions(rows, {
+                      sectionKey: section.key,
+                      noteTooltipById
+                    })}
                   </article>
                 );
               })}

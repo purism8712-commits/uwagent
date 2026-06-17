@@ -1,7 +1,9 @@
+import { useEffect, useMemo, useState } from "react";
 import styles from "./components.module.css";
 import type { SampleProductOption } from "@/lib/sample-data";
 import type { DraftSummary } from "@/lib/draft-builder";
-import { buildReviewMemos, buildReviewQuestions } from "@/lib/review-content";
+import type { ParsedProductCandidate } from "@/lib/product-candidate-parser";
+import { buildReviewMemos, buildReviewQuestionGroups } from "@/lib/review-content";
 
 type ReviewStageProps = {
   masterFileNames: string[];
@@ -15,6 +17,7 @@ type ReviewStageProps = {
   submitError: string;
   productName: string;
   productOptions: SampleProductOption[];
+  masterProducts: ParsedProductCandidate[];
   isDownloadingMaster: boolean;
   isDownloadingProduct: boolean;
   onAnswerChange: (id: string, value: string) => void;
@@ -37,6 +40,7 @@ export function ReviewStage({
   submitError,
   productName,
   productOptions,
+  masterProducts,
   isDownloadingMaster,
   isDownloadingProduct,
   onAnswerChange,
@@ -46,6 +50,7 @@ export function ReviewStage({
   onDownloadMaster,
   onDownloadProduct
 }: ReviewStageProps) {
+  const [isCoreQuestionWindowOpen, setIsCoreQuestionWindowOpen] = useState(false);
   const normalizedKeyword = productName.trim().toLowerCase();
   const matchedProducts = normalizedKeyword
     ? productOptions.filter((product) =>
@@ -65,33 +70,109 @@ export function ReviewStage({
     rawInput,
     productName
   });
-  const reviewQuestions = buildReviewQuestions(
-    {
-      masterFileNames,
-      changeFileNames,
-      rawInput,
-      productName
-    },
-    reviewMemos
+  const { coreQuestions, detailQuestions } = useMemo(
+    () =>
+      buildReviewQuestionGroups(
+        {
+          masterFileNames,
+          changeFileNames,
+          rawInput,
+          productName,
+          masterProducts
+        },
+        reviewMemos
+      ),
+    [changeFileNames, masterFileNames, masterProducts, rawInput, productName, reviewMemos]
   );
-  const hasUnansweredDynamicQuestion = reviewQuestions.some(
+  useEffect(() => {
+    setIsCoreQuestionWindowOpen(coreQuestions.length > 0);
+  }, [
+    coreQuestions.length,
+    changeFileNames,
+    masterFileNames,
+    masterProducts,
+    productName,
+    rawInput
+  ]);
+  const hasUnansweredCoreQuestion = coreQuestions.some(
     (question) => !(answers[question.id] ?? "").trim()
   );
+  const hasUnansweredDetailQuestion = detailQuestions.some(
+    (question) => !(answers[question.id] ?? "").trim()
+  );
+  const reviewQuestions = detailQuestions;
+  const canCloseCoreQuestionWindow = !hasUnansweredCoreQuestion;
   const beforeValueLabel = finalSummary?.beforeValue.replace(/^단일건\s*/, "") ?? "";
   const afterValueLabel = finalSummary?.afterValue.replace(/^단일건\s*/, "") ?? "";
   const finalSummaryBrief = finalSummary
-    ? `답변 ${finalSummary.appliedAnswers.length}개를 반영해 ${finalSummary.target} 단일건 한도를 ${beforeValueLabel}에서 ${afterValueLabel}으로 정리했고, 남은 검토 항목은 ${finalSummary.pendingNotes.length}건입니다.`
+    ? finalSummary.afterValue === "변경 없음" || beforeValueLabel === afterValueLabel
+      ? `답변 ${finalSummary.appliedAnswers.length}개를 반영했지만 ${finalSummary.target} 단일건의 현재 기준값과 변경값이 같아 변경 없음으로 확인했고, 남은 검토 항목은 ${finalSummary.pendingNotes.length}건입니다.`
+      : `답변 ${finalSummary.appliedAnswers.length}개를 반영해 ${finalSummary.target} 단일건 한도를 ${beforeValueLabel}에서 ${afterValueLabel}으로 정리했고, 남은 검토 항목은 ${finalSummary.pendingNotes.length}건입니다.`
     : "";
 
   return (
     <section className={styles.stepFlowStack}>
+      {isCoreQuestionWindowOpen ? (
+        <div className={styles.coreQuestionOverlay} role="dialog" aria-modal="true" aria-label="핵심 확인 질문">
+          <article className={styles.coreQuestionWindow}>
+            <div className={styles.coreQuestionWindowHeader}>
+              <div>
+                <span className={styles.panelLabel}>서브 확인 창</span>
+                <h3 className={styles.panelTitle}>가장 중요한 변경 확인 질문</h3>
+              </div>
+              <span className={styles.statusPill}>핵심 확인 필요</span>
+            </div>
+            <p className={styles.panelText}>
+              변경 대상을 먼저 정확히 맞춘 뒤, 보험코드와 주석 기준의 상세 질문으로
+              넘어갑니다.
+            </p>
+
+            <div className={styles.coreQuestionList}>
+              {coreQuestions.map((question, index) => (
+                <div className={styles.questionRow} key={question.id}>
+                  <div className={styles.questionHeader}>
+                    <span className={styles.questionLabel}>{question.label}</span>
+                    <span className={styles.questionIndex}>{`C${index + 1}`}</span>
+                  </div>
+                  <p className={styles.questionPrompt}>{question.prompt}</p>
+                  <p className={styles.questionHint}>{question.hint}</p>
+                  <input
+                    className={styles.answerInput}
+                    type="text"
+                    value={answers[question.id] ?? ""}
+                    onChange={(event) => onAnswerChange(question.id, event.target.value)}
+                    placeholder="답변을 입력해 주세요."
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className={styles.coreQuestionFooter}>
+              <p className={styles.currentGuidelinesFootnote}>
+                핵심 질문이 모두 채워지면 아래 상세 질문과 검토 메모가 이어서 열립니다.
+              </p>
+              <button
+                className={styles.primaryButton}
+                type="button"
+                onClick={() => setIsCoreQuestionWindowOpen(false)}
+                disabled={!canCloseCoreQuestionWindow}
+              >
+                핵심 확인 완료
+              </button>
+            </div>
+          </article>
+        </div>
+      ) : null}
+
       <article className={`${styles.reviewFlowPanel} ${styles.reviewStageCard}`}>
         <div className={styles.reviewSummaryTop}>
           <div>
             <span className={styles.panelLabel}>STEP 3</span>
             <h2 className={styles.panelTitle}>검토 메모 및 확인질문</h2>
           </div>
-          <span className={styles.statusPill}>검토 필요 항목 있음</span>
+          <span className={styles.statusPill}>
+            {isCoreQuestionWindowOpen ? "핵심 확인 대기" : "검토 필요 항목 있음"}
+          </span>
         </div>
 
         <p className={styles.panelText}>
@@ -130,8 +211,8 @@ export function ReviewStage({
           <div className={styles.reviewQuestionHeader}>
             <h3 className={styles.panelHeading}>추가 확인 질문</h3>
             <p className={styles.questionIntro}>
-              검토 메모를 먼저 읽고, 아래 질문에 모두 답해주시면 초안 생성 단계로
-              넘어갈 수 있습니다.
+              핵심 확인 질문을 먼저 마친 뒤, 보험코드와 주석 기준의 상세 질문을
+              이어서 확인합니다.
             </p>
           </div>
           {submitError ? <p className={styles.errorBanner}>{submitError}</p> : null}
@@ -160,29 +241,38 @@ export function ReviewStage({
             </div>
           </section>
 
-          <div className={styles.questionSpacer} aria-hidden="true" />
+          {!isCoreQuestionWindowOpen ? (
+            <>
+              <div className={styles.questionSpacer} aria-hidden="true" />
 
-          <div className={styles.questionList}>
-            {reviewQuestions.map((question) => (
-              <div className={styles.questionRow} key={question.id}>
-                <div className={styles.questionHeader}>
-                  <span className={styles.questionLabel}>{question.label}</span>
-                  <span className={styles.questionIndex}>
-                    {question.id.replace("question-", "Q")}
-                  </span>
-                </div>
-                <p className={styles.questionPrompt}>{question.prompt}</p>
-                <p className={styles.questionHint}>{question.hint}</p>
-                <input
-                  className={styles.answerInput}
-                  type="text"
-                  value={answers[question.id] ?? ""}
-                  onChange={(event) => onAnswerChange(question.id, event.target.value)}
-                  placeholder="답변을 입력해 주세요."
-                />
+              <div className={styles.questionList}>
+                {reviewQuestions.map((question, index) => (
+                  <div className={styles.questionRow} key={question.id}>
+                    <div className={styles.questionHeader}>
+                      <span className={styles.questionLabel}>{question.label}</span>
+                      <span className={styles.questionIndex}>{`Q${index + 1}`}</span>
+                    </div>
+                    <p className={styles.questionPrompt}>{question.prompt}</p>
+                    <p className={styles.questionHint}>{question.hint}</p>
+                    <input
+                      className={styles.answerInput}
+                      type="text"
+                      value={answers[question.id] ?? ""}
+                      onChange={(event) => onAnswerChange(question.id, event.target.value)}
+                      placeholder="답변을 입력해 주세요."
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          ) : (
+            <div className={styles.detailQuestionsLocked}>
+              <p className={styles.currentGuidelinesFootnote}>
+                핵심 확인 창에서 대상 특약과 변경값을 먼저 확정하면, 아래 상세 질문이
+                열립니다.
+              </p>
+            </div>
+          )}
 
           <div className={styles.ctaRow}>
             <button
@@ -190,7 +280,12 @@ export function ReviewStage({
               type="button"
               onClick={onConfirmDraft}
               disabled={
-                isActionDisabled || hasUnansweredDynamicQuestion || isSubmitting || !isMasterCreated
+                isActionDisabled ||
+                hasUnansweredCoreQuestion ||
+                hasUnansweredDetailQuestion ||
+                isSubmitting ||
+                !isMasterCreated ||
+                isCoreQuestionWindowOpen
               }
             >
               {isSubmitting ? "초안 생성 중..." : "초안생성"}

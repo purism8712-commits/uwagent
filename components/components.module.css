@@ -10,8 +10,8 @@
 }
 
 .heroPanel {
-  min-height: 232px;
-  padding: 24px 34px;
+  min-height: 204px;
+  padding: 18px 30px 20px;
   border-radius: var(--radius-xl);
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.07), transparent 30%),
@@ -22,8 +22,8 @@
   overflow: hidden;
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(420px, 0.75fr);
-  gap: 24px;
-  align-items: center;
+  gap: 12px 24px;
+  align-items: start;
 }
 
 .heroContent {
@@ -43,7 +43,7 @@
 }
 
 .heroTitle {
-  margin: 12px 0 8px;
+  margin: 8px 0 6px;
   font-size: 46px;
   line-height: 1.04;
   letter-spacing: -0.04em;
@@ -59,11 +59,60 @@
 .heroStats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  align-self: center;
+  gap: 6px;
+  align-self: start;
   justify-self: center;
   width: 100%;
   max-width: 540px;
+}
+
+.heroSessionCard {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  justify-self: end;
+  width: min(520px, 100%);
+  margin-top: 0;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.heroSessionCopy {
+  display: grid;
+  gap: 2px;
+}
+
+.heroSessionLabel {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.heroSessionName {
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.heroSessionMeta {
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 10px;
+}
+
+.heroSessionButton {
+  min-width: 92px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .sessionBar {
@@ -367,6 +416,73 @@
   gap: 10px;
 }
 
+.coreQuestionOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background: rgba(8, 18, 43, 0.52);
+  backdrop-filter: blur(4px);
+}
+
+.coreQuestionWindow {
+  width: min(960px, 100%);
+  max-height: min(78vh, 820px);
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(156, 176, 209, 0.92);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 18px 42px rgba(8, 18, 43, 0.24);
+  overflow: hidden;
+}
+
+.coreQuestionWindowHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.coreQuestionList {
+  display: grid;
+  gap: 8px;
+  max-height: min(42vh, 440px);
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.coreQuestionList::-webkit-scrollbar {
+  width: 10px;
+}
+
+.coreQuestionList::-webkit-scrollbar-thumb {
+  background: #c8d4e8;
+  border-radius: 999px;
+}
+
+.coreQuestionList::-webkit-scrollbar-track {
+  background: #eff4fb;
+  border-radius: 999px;
+}
+
+.coreQuestionFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.detailQuestionsLocked {
+  padding: 10px 12px 2px;
+  border-radius: 14px;
+  border: 1px dashed rgba(156, 176, 209, 0.72);
+  background: rgba(248, 251, 255, 0.8);
+}
+
 .currentGuidelinesCard {
   width: 100%;
   display: grid;
@@ -526,6 +642,50 @@
   min-width: 1520px;
 }
 
+.currentGuidelinesPreviewTabsPanel {
+  display: grid;
+  gap: 14px;
+  min-width: 1520px;
+}
+
+.currentGuidelinesPreviewTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.currentGuidelinesPreviewTab {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 140px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(134, 156, 192, 0.72);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--navy);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(98, 122, 165, 0.08);
+}
+
+.currentGuidelinesPreviewTabActive {
+  background: linear-gradient(180deg, #ffffff 0%, #e5f0ff 100%);
+  border-color: rgba(122, 169, 240, 0.98);
+  box-shadow: 0 10px 20px rgba(98, 122, 165, 0.14);
+}
+
+.currentGuidelinesPreviewTabLabel {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.currentGuidelinesPreviewTabMeta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
 .currentGuidelinesPreviewSection {
   padding: 14px;
   border-radius: 20px;
@@ -562,7 +722,7 @@
 }
 
 .currentGuidelinesPreviewTableWrap {
-  max-height: 160px;
+  max-height: 280px;
   max-width: 100%;
   overflow-x: auto;
   overflow-y: auto;
@@ -585,6 +745,14 @@
   border-right: 1px solid #edf2fb;
   text-align: left;
   white-space: nowrap;
+}
+
+.currentGuidelinesPreviewInsuranceCodeCell {
+  max-width: 220px;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
 }
 
 .currentGuidelinesPreviewTable th {
@@ -625,6 +793,43 @@
   color: var(--muted);
   font-size: 12px;
   line-height: 1.6;
+}
+
+.currentGuidelinesPreviewFilterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+
+.currentGuidelinesPreviewFilterField {
+  display: grid;
+  gap: 8px;
+  flex: 0 1 420px;
+  width: min(100%, 420px);
+  max-width: 420px;
+}
+
+.currentGuidelinesPreviewFilterLabel {
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.currentGuidelinesPreviewFilterInput {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(134, 156, 192, 0.88);
+  background: #fff;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+}
+
+.currentGuidelinesPreviewFilterInput:focus {
+  border-color: rgba(122, 169, 240, 1);
+  box-shadow: 0 0 0 3px rgba(122, 169, 240, 0.14);
 }
 
 .currentGuidelinesError {
@@ -690,6 +895,28 @@
   color: #fff;
   cursor: pointer;
   font-weight: 700;
+}
+
+.resetIconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  min-height: 52px;
+  padding: 0;
+  border-radius: 14px;
+  border: 1px solid rgba(104, 132, 189, 0.28);
+  background: linear-gradient(180deg, #ffffff 0%, #edf3ff 100%);
+  color: var(--navy);
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: 800;
+  box-shadow: 0 6px 14px rgba(88, 114, 160, 0.08);
+}
+
+.resetIconButton:hover {
+  border-color: rgba(104, 132, 189, 0.45);
+  background: linear-gradient(180deg, #ffffff 0%, #e4edff 100%);
 }
 
 .fileName {
@@ -1042,7 +1269,7 @@
 }
 
 .questionRow {
-  padding: 12px 0;
+  padding: 8px 0;
   border-top: 1px solid var(--line);
 }
 
@@ -1055,29 +1282,29 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: 10px;
+  margin-bottom: 6px;
 }
 
 .questionPrompt {
   margin: 0 0 6px;
-  font-size: 14px;
-  line-height: 1.45;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .questionHint {
   margin: 0 0 10px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .answerInput {
   width: 100%;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 10px;
   background: #fff;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .reviewResultCard {

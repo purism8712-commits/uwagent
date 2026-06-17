@@ -1,43 +1,13 @@
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { basename, join } from "node:path";
 import * as XLSX from "xlsx";
-import type { SampleProductOption } from "@/lib/sample-data";
-
-export type SpecialItemMapping = {
-  specialName: string;
-  insuranceCode: string;
-  limitValue?: string;
-  noteText?: string;
-};
-
-export type ParsedNoteEntry = {
-  noteLabel: string;
-  noteText: string;
-  noteType: "본문주석" | "비고" | "계산식" | "예외" | "기타";
-  relatedSpecialName?: string;
-  insuranceCode?: string;
-  limitValue?: string;
-};
-
-export type ParsedProductCandidate = SampleProductOption & {
-  productCode?: string;
-  insuranceCode?: string;
-  insuranceCodeMapping?: string;
-  specialItems?: SpecialItemMapping[];
-  noteEntries?: ParsedNoteEntry[];
-  sourceFileName: string;
-  sheetName: string;
-};
-
-type ColumnMap = {
-  productCode: number;
-  insuranceCode: number;
-  productName: number;
-  saleDate: number;
-};
-
-const PRODUCT_CODE_HEADERS = ["상품코드", "보험코드", "코드", "상품 코드"];
-const INSURANCE_CODE_HEADERS = ["보험코드", "보험 코드"];
-const PRODUCT_NAME_HEADERS = ["상품명", "특약명", "상품명칭", "특약"];
-const SALE_DATE_HEADERS = ["판매일자", "판매일", "판매 시작일", "시행일자"];
+import {
+  buildFallbackProductCandidates,
+  type ParsedNoteEntry,
+  type ParsedProductCandidate,
+  type SpecialItemMapping
+} from "@/lib/product-candidate-parser";
 
 function normalizeText(value: unknown) {
   return String(value ?? "")
@@ -97,7 +67,7 @@ function normalizeSaleDate(value: unknown) {
   return text;
 }
 
-function normalizeCellValue(cell: any) {
+function normalizeCellValue(cell: unknown) {
   if (!cell) {
     return "";
   }
@@ -114,13 +84,12 @@ function normalizeCellValue(cell: any) {
     );
   }
 
-  const value = cell.text || cell.value;
-
-  if (value && typeof value === "object" && "result" in value) {
-    return normalizeText((value as { result?: unknown }).result);
+  if (typeof cell === "object" && cell !== null) {
+    const value = (cell as { text?: unknown; value?: unknown }).text ?? (cell as { value?: unknown }).value;
+    return normalizeText(value);
   }
 
-  return normalizeText(value);
+  return normalizeText(cell);
 }
 
 function extractLabeledValue(rows: string[][], label: string) {
@@ -180,22 +149,6 @@ function buildInsuranceMappingText(items: SpecialItemMapping[]) {
     .filter(Boolean);
 
   return mappings.join(" / ");
-}
-
-function isBundleMarker(value: string) {
-  return normalizeText(value) === "묶음특약";
-}
-
-function isBundleChildLabel(value: string) {
-  return /^\d+\s*종$/.test(normalizeText(value));
-}
-
-function resolveSpecialName(row: string[], fallbackIndex: number) {
-  const primary = normalizeText(row[0]);
-  const secondary = normalizeText(row[1]);
-  const tertiary = normalizeText(row[2]);
-
-  return primary || secondary || tertiary || `특약 ${fallbackIndex + 1}`;
 }
 
 function findGuideColumnIndex(headerRow: string[], ...labels: string[]) {
@@ -272,11 +225,41 @@ function extractFootnoteEntries(rows: string[][], startIndex: number) {
   return entries;
 }
 
+function isGenericSpecialLabel(value: string) {
+  return /^특약\s*\d+$/.test(normalizeText(value));
+}
+
+function isBundleMarker(value: string) {
+  return normalizeText(value) === "묶음특약";
+}
+
+function isBundleChildLabel(value: string) {
+  return /^\d+\s*종$/.test(normalizeText(value));
+}
+
+function resolveSpecialName(row: string[], fallbackIndex: number) {
+  const primary = normalizeText(row[0]);
+  const secondary = normalizeText(row[1]);
+  const tertiary = normalizeText(row[2]);
+
+  return primary || secondary || tertiary || `특약 ${fallbackIndex + 1}`;
+}
+
+function buildCandidateSummary(
+  candidate: Pick<ParsedProductCandidate, "productCode" | "insuranceCode" | "saleDate">,
+  sheetName: string
+) {
+  const saleDateText = candidate.saleDate ? `판매일자 ${candidate.saleDate}` : "판매일자 미기재";
+  const codeText = candidate.productCode ? `상품코드 ${candidate.productCode}` : sheetName;
+  const insuranceText = candidate.insuranceCode ? `보험코드 ${candidate.insuranceCode}` : "";
+
+  return `${codeText}${insuranceText ? ` / ${insuranceText}` : ""} 기준 / ${saleDateText}`;
+}
+
 function extractGuideLayoutCandidate(fileName: string, sheetName: string, rows: string[][]) {
   const labeledProductName = extractLabeledValue(rows, "상품명");
   const labeledProductCode = extractLabeledValue(rows, "상품코드");
   const labeledSaleDate = extractLabeledValue(rows, "판매 일자");
-
   const insuranceHeaderRowIndex = rows.findIndex((row) =>
     row.some((cell) => normalizeText(cell).includes("보험코드"))
   );
@@ -346,7 +329,6 @@ function extractGuideLayoutCandidate(fileName: string, sheetName: string, rows: 
         });
 
       noteEntries = extractFootnoteEntries(rows, insuranceHeaderRowIndex + 1);
-
       insuranceCode = summarizeCodes(
         specialItems.map((item) => item.insuranceCode),
         ""
@@ -382,102 +364,10 @@ function extractGuideLayoutCandidate(fileName: string, sheetName: string, rows: 
   } satisfies ParsedProductCandidate;
 }
 
-function findColumnMap(rows: string[][]): { rowIndex: number; columns: ColumnMap } | null {
-  for (let rowIndex = 0; rowIndex < Math.min(rows.length, 20); rowIndex += 1) {
-    const row = rows[rowIndex] ?? [];
-    const productCodeIndex = row.findIndex((cell) =>
-      PRODUCT_CODE_HEADERS.some((header) => cell.includes(header))
-    );
-    const insuranceCodeIndex = row.findIndex((cell) =>
-      INSURANCE_CODE_HEADERS.some((header) => cell.includes(header))
-    );
-    const productNameIndex = row.findIndex((cell) =>
-      PRODUCT_NAME_HEADERS.some((header) => cell.includes(header))
-    );
-    const saleDateIndex = row.findIndex((cell) =>
-      SALE_DATE_HEADERS.some((header) => cell.includes(header))
-    );
-
-    if (productNameIndex >= 0 && saleDateIndex >= 0) {
-      return {
-        rowIndex,
-        columns: {
-          productCode: productCodeIndex,
-          insuranceCode: insuranceCodeIndex,
-          productName: productNameIndex,
-          saleDate: saleDateIndex
-        }
-      };
-    }
-  }
-
-  return null;
-}
-
-function dedupeCandidates(candidates: ParsedProductCandidate[]) {
-  const seen = new Set<string>();
-  const result: ParsedProductCandidate[] = [];
-
-  for (const candidate of candidates) {
-    const dedupeKey = [
-      candidate.productCode?.trim().toLowerCase() ?? "",
-      candidate.productName.trim().toLowerCase(),
-      candidate.saleDate.trim()
-    ].join("|");
-
-    if (seen.has(dedupeKey)) {
-      continue;
-    }
-
-    seen.add(dedupeKey);
-    result.push(candidate);
-  }
-
-  return result;
-}
-
-function buildCandidateSummary(
-  candidate: Pick<ParsedProductCandidate, "productCode" | "insuranceCode" | "saleDate">,
-  sheetName: string
-) {
-  const saleDateText = candidate.saleDate ? `판매일자 ${candidate.saleDate}` : "판매일자 미기재";
-  const codeText = candidate.productCode ? `상품코드 ${candidate.productCode}` : sheetName;
-  const insuranceText = candidate.insuranceCode ? `보험코드 ${candidate.insuranceCode}` : "";
-
-  return `${codeText}${insuranceText ? ` / ${insuranceText}` : ""} 기준 / ${saleDateText}`;
-}
-
-export function buildFallbackProductCandidates(fileNames: string[]) {
-  return fileNames
-    .map((fileName, index): ParsedProductCandidate | null => {
-      const productName = deriveProductLabel(fileName);
-      if (!productName) {
-        return null;
-      }
-
-      return {
-        id: sanitizeId(`fallback-${index + 1}-${fileName}`),
-        productName,
-        saleDate: "미기재",
-        sourceFileName: fileName,
-        sheetName: "파일명 기준",
-        summary: "업로드된 가이드라인 파일명 기준 자동 후보"
-      };
-    })
-    .filter((candidate): candidate is ParsedProductCandidate => Boolean(candidate));
-}
-
-async function readWorkbookRows(file: File) {
-  const rawBuffer =
-    typeof file.arrayBuffer === "function"
-      ? await file.arrayBuffer()
-      : await new Response(file).arrayBuffer();
-  const workbookInput =
-    typeof Buffer !== "undefined"
-      ? Buffer.from(new Uint8Array(rawBuffer))
-      : rawBuffer;
-  const workbook = XLSX.read(workbookInput, {
-    type: typeof Buffer !== "undefined" ? "buffer" : "array",
+async function readWorkbookRows(filePath: string) {
+  const rawBuffer = await readFile(filePath);
+  const workbook = XLSX.read(rawBuffer, {
+    type: "buffer",
     cellDates: true
   });
 
@@ -489,79 +379,49 @@ async function readWorkbookRows(file: File) {
         defval: "",
         raw: false
       })
-      .map((row) =>
-        row.map((cell) => normalizeCellValue(cell))
-      );
+      .map((row) => row.map((cell) => normalizeCellValue(cell)));
 
-    return { worksheet: { name: sheetName }, rows };
+    return { sheetName, rows };
   });
 }
 
-export async function extractProductCandidatesFromFiles(files: File[]) {
-  const candidates: ParsedProductCandidate[] = [];
-  const fileNames = files.map((file) => file.name);
+export function hasResolvedMasterProducts(products: ParsedProductCandidate[]) {
+  return products.some((product) => {
+    const hasMapping = Boolean(product.insuranceCodeMapping?.trim());
+    const hasSpecialItems =
+      Array.isArray(product.specialItems) &&
+      product.specialItems.length > 0 &&
+      product.specialItems.every((item) => Boolean(item.insuranceCode.trim())) &&
+      product.specialItems.every((item) => Boolean(item.limitValue?.trim()) || Boolean(item.noteText?.trim())) &&
+      product.specialItems.every(
+        (item) => !isBundleMarker(item.insuranceCode) && !isGenericSpecialLabel(item.specialName)
+      );
 
-  for (const file of files) {
-    const worksheets = await readWorkbookRows(file);
+    return hasMapping && hasSpecialItems;
+  });
+}
 
-    for (const { worksheet, rows } of worksheets) {
-      const guideLayoutCandidate = extractGuideLayoutCandidate(file.name, worksheet.name, rows);
-      if (guideLayoutCandidate) {
-        candidates.push(guideLayoutCandidate);
-        continue;
-      }
+export async function hydrateMasterProductsFromData(fileNames: string[]) {
+  const hydratedCandidates: ParsedProductCandidate[] = [];
 
-      const headerInfo = findColumnMap(rows);
-      if (!headerInfo) {
-        continue;
-      }
+  for (const fileName of fileNames) {
+    const resolvedPath = join(process.cwd(), "data", basename(fileName));
+    if (!existsSync(resolvedPath)) {
+      continue;
+    }
 
-      const { rowIndex, columns } = headerInfo;
-
-      for (let index = rowIndex + 1; index < rows.length; index += 1) {
-        const row = rows[index] ?? [];
-        if (row.every((cell) => normalizeText(cell) === "")) {
-          continue;
-        }
-
-        const productCode =
-          columns.productCode >= 0 ? normalizeText(row[columns.productCode]) : "";
-        const insuranceCode =
-          columns.insuranceCode >= 0 ? normalizeText(row[columns.insuranceCode]) : "";
-        const productName = normalizeText(row[columns.productName]) || stripExtension(file.name);
-        const saleDate =
-          columns.saleDate >= 0 ? normalizeSaleDate(row[columns.saleDate]) : "";
-
-        if (!productName && !productCode) {
-          continue;
-        }
-
-        candidates.push({
-          id: sanitizeId(`${file.name}-${worksheet.name}-${index}-${productCode || productName}`),
-          productCode: productCode || undefined,
-          insuranceCode: insuranceCode || undefined,
-          productName,
-          saleDate: saleDate || "미기재",
-          sourceFileName: file.name,
-          sheetName: worksheet.name,
-          summary: buildCandidateSummary(
-            {
-              productCode: productCode || undefined,
-              insuranceCode: insuranceCode || undefined,
-              saleDate: saleDate || ""
-            },
-            worksheet.name
-          )
-        });
+    const worksheets = await readWorkbookRows(resolvedPath);
+    for (const { sheetName, rows } of worksheets) {
+      const candidate = extractGuideLayoutCandidate(basename(fileName), sheetName, rows);
+      if (candidate) {
+        hydratedCandidates.push(candidate);
       }
     }
   }
 
-  const parsedCandidates = dedupeCandidates(candidates);
-  const filesWithCandidates = new Set(parsedCandidates.map((candidate) => candidate.sourceFileName));
-  const fallbackCandidates = buildFallbackProductCandidates(
-    fileNames.filter((fileName) => !filesWithCandidates.has(fileName))
-  );
+  if (hydratedCandidates.length > 0) {
+    return hydratedCandidates;
+  }
 
-  return dedupeCandidates([...parsedCandidates, ...fallbackCandidates]);
+  return buildFallbackProductCandidates(fileNames);
 }

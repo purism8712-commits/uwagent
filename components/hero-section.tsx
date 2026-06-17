@@ -1,6 +1,14 @@
-import styles from "./components.module.css";
+"use client";
 
-export function HeroSection() {
+import styles from "./components.module.css";
+import type { AuthSession } from "@/lib/session";
+
+type HeroSectionProps = {
+  userSession?: AuthSession | null;
+  onLogout?: () => void;
+};
+
+export function HeroSection({ userSession, onLogout }: HeroSectionProps) {
   return (
     <section className={styles.heroGrid}>
       <div className={styles.heroPanel}>
@@ -27,6 +35,21 @@ export function HeroSection() {
             <span className={styles.heroStatValue}>초안 / 검토 필요</span>
           </div>
         </div>
+
+        {userSession ? (
+          <div className={styles.heroSessionCard}>
+            <div className={styles.heroSessionCopy}>
+              <span className={styles.heroSessionLabel}>로그인 정보</span>
+              <strong className={styles.heroSessionName}>
+                {userSession.name} · {userSession.department}
+              </strong>
+              <span className={styles.heroSessionMeta}>사번 {userSession.employeeId}</span>
+            </div>
+            <button className={styles.heroSessionButton} type="button" onClick={onLogout}>
+              로그아웃
+            </button>
+          </div>
+        ) : null}
       </div>
     </section>
   );
