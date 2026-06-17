@@ -582,6 +582,9 @@ describe("Common core app flow", () => {
     expect(
       screen.getByRole("button", { name: "상품 추출 다운로드" })
     ).toBeDisabled();
+    expect(
+      screen.queryByRole("dialog", { name: "핵심 확인 질문" })
+    ).not.toBeInTheDocument();
     const draftSummaryCall = fetchMock.mock.calls.find(
       ([url]) => typeof url === "string" && url === "/api/draft-summary"
     );
@@ -1051,6 +1054,109 @@ describe("Common core app flow", () => {
         "다운로드가 시작되면 브라우저의 파일 열기/저장 안내를 확인해 주세요."
       )
     ).toHaveLength(2);
+  });
+
+  it("clears the previous draft summary when the change text is edited", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (typeof input === "string" && input === "/api/master-workbook") {
+        return {
+          ok: true,
+          json: async () => ({ ok: true })
+        };
+      }
+
+      if (typeof input === "string" && input === "/api/draft-summary") {
+        return {
+          ok: true,
+          json: async () => ({
+            summary: {
+              target: "소액암진단",
+              beforeValue: "단일건 1000",
+              afterValue: "단일건 2000",
+              appliedAnswers: ["답변"],
+              pendingNotes: ["검토 필요"]
+            }
+          })
+        };
+      }
+
+      return {
+        ok: true,
+        blob: async () => new Blob(["xlsx"])
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<HomePage userSession={authorizedSession} />);
+
+    await createMasterWorkbook(user);
+    await user.type(screen.getByLabelText("표 또는 자연어 입력"), "소액암진단 5천으로 변경");
+    await user.click(screen.getByRole("button", { name: "입력완료" }));
+    await completeCoreConfirmation(user);
+    const answers = screen.getAllByPlaceholderText("답변을 입력해 주세요.");
+    for (const [index, input] of answers.entries()) {
+      await user.type(input, `답변 ${index + 1}`);
+    }
+    await user.click(screen.getByRole("button", { name: "초안생성" }));
+
+    expect(await screen.findByRole("heading", { name: "초안 생성 결과" })).toBeInTheDocument();
+
+    await user.clear(screen.getByLabelText("표 또는 자연어 입력"));
+    await user.type(screen.getByLabelText("표 또는 자연어 입력"), "뇌혈관 진단 한도 변경");
+
+    expect(screen.queryByRole("heading", { name: "초안 생성 결과" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "통합 마스터와 상품 추출 다운로드" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the core question window open until the user clicks the completion button", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (typeof input === "string" && input === "/api/master-workbook") {
+        return {
+          ok: true,
+          json: async () => ({ ok: true })
+        };
+      }
+
+      return {
+        ok: true,
+        json: async () => ({})
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<HomePage userSession={authorizedSession} />);
+
+    await user.upload(
+      screen.getByLabelText("가이드라인 엑셀 업로드"),
+      await buildBundledGuideLayoutFile(
+        "실버보험 신계약가이드라인.xlsx",
+        "실버보험",
+        "LP030405",
+        "2026년 5월 1일"
+      )
+    );
+    await user.click(screen.getByRole("button", { name: "전체 통합 마스터 파일 만들기" }));
+    await user.type(
+      screen.getByLabelText("표 또는 자연어 입력"),
+      "소액암진단 단일건 한도를 1000에서 2000으로 변경"
+    );
+    await user.click(screen.getByRole("button", { name: "입력완료" }));
+
+    const coreDialog = await screen.findByRole("dialog", { name: "핵심 확인 질문" });
+    const inputs = within(coreDialog).getAllByPlaceholderText("답변을 입력해 주세요.");
+
+    for (const [index, input] of inputs.entries()) {
+      await user.type(input, `핵심 답변 ${index + 1}`);
+    }
+
+    expect(within(coreDialog).getByRole("button", { name: "핵심 확인 완료" })).toBeEnabled();
+    expect(screen.getByRole("dialog", { name: "핵심 확인 질문" })).toBeInTheDocument();
+
+    await user.click(within(coreDialog).getByRole("button", { name: "핵심 확인 완료" }));
+
+    expect(screen.queryByRole("dialog", { name: "핵심 확인 질문" })).not.toBeInTheDocument();
   });
 
   it("keeps 초안생성 disabled until every question has an answer", async () => {

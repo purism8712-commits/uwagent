@@ -84,22 +84,27 @@ export function ReviewStage({
       ),
     [changeFileNames, masterFileNames, masterProducts, rawInput, productName, reviewMemos]
   );
-  useEffect(() => {
-    setIsCoreQuestionWindowOpen(coreQuestions.length > 0);
-  }, [
-    coreQuestions.length,
-    changeFileNames,
-    masterFileNames,
-    masterProducts,
-    productName,
-    rawInput
-  ]);
+  const coreQuestionSignature = useMemo(
+    () => coreQuestions.map((question) => question.id).join("|"),
+    [coreQuestions]
+  );
   const hasUnansweredCoreQuestion = coreQuestions.some(
     (question) => !(answers[question.id] ?? "").trim()
   );
   const hasUnansweredDetailQuestion = detailQuestions.some(
     (question) => !(answers[question.id] ?? "").trim()
   );
+  useEffect(() => {
+    setIsCoreQuestionWindowOpen(coreQuestions.length > 0 && !finalSummary);
+  }, [
+    coreQuestionSignature,
+    finalSummary,
+    changeFileNames,
+    masterFileNames,
+    masterProducts,
+    productName,
+    rawInput
+  ]);
   const reviewQuestions = detailQuestions;
   const canCloseCoreQuestionWindow = !hasUnansweredCoreQuestion;
   const beforeValueLabel = finalSummary?.beforeValue.replace(/^단일건\s*/, "") ?? "";

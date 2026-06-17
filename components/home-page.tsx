@@ -356,7 +356,12 @@ export default function HomePage({ userSession }: HomePageProps) {
           isCreatingMaster={isCreatingMaster}
           isPreviewLoading={isPreviewLoading}
           previewError={previewError}
-          onRawInputChange={setRawInput}
+          onRawInputChange={(value) => {
+            setRawInput(value);
+            setAnswers({});
+            setFinalSummary(null);
+            setStep("input");
+          }}
           onMasterFileChange={(files) => {
             setMasterFiles(files);
             setMasterFileNames(files.map((file) => file.name));
