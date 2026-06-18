@@ -7,6 +7,7 @@ import {
 } from "@/lib/review-content";
 import type { ParsedProductCandidate } from "@/lib/product-candidate-parser";
 import { buildDraftWorkbookBuffer } from "@/lib/draft-export";
+import { buildTargetCandidates } from "@/lib/target-resolution";
 
 describe("draft request normalization", () => {
   it("accepts legacy payload fields used by manual API callers", () => {
@@ -334,15 +335,15 @@ describe("draft request normalization", () => {
     });
     expect(siblingRow).toMatchObject({
       "as-is 일반/건강 단일건": "2000",
-      "to-be 일반/건강 단일건": "2000",
+      "to-be 일반/건강 단일건": "",
       "as-is 간편 단일건": "2000",
-      "to-be 간편 단일건": "2000"
+      "to-be 간편 단일건": ""
     });
     expect(unrelatedRow).toMatchObject({
       "as-is 일반/건강 단일건": "1000",
-      "to-be 일반/건강 단일건": "1000",
+      "to-be 일반/건강 단일건": "",
       "as-is 간편 단일건": "1000",
-      "to-be 간편 단일건": "1000"
+      "to-be 간편 단일건": ""
     });
   });
 
@@ -389,9 +390,9 @@ describe("draft request normalization", () => {
     });
     expect(siblingRow).toMatchObject({
       "as-is 일반/건강 단일건": "1000",
-      "to-be 일반/건강 단일건": "1000",
+      "to-be 일반/건강 단일건": "",
       "as-is 간편 단일건": "1000",
-      "to-be 간편 단일건": "1000"
+      "to-be 간편 단일건": ""
     });
   });
 
@@ -441,18 +442,14 @@ describe("draft request normalization", () => {
       memos
     );
 
-    expect(questions).toHaveLength(9);
-    expect(questions.map((question) => question.prompt)).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining("암진단 및 소액암진단은 동일 기준 적용"),
-        expect.stringContaining("소액암 진단 인별합산 한도 5천만원"),
-        expect.stringContaining("1000 → 2000"),
-        expect.stringContaining("시행예정")
-      ])
-    );
-    expect(questions.map((question) => question.prompt)).not.toEqual(
-      expect.arrayContaining([expect.stringContaining("뇌혈관 진단")])
-    );
+    expect(questions).toHaveLength(6);
+    expect(questions[0].prompt).toContain("암진단 및 소액암진단은 동일 기준 적용");
+    expect(questions[1].prompt).toContain("소액암 진단 인별합산 한도 5천만원");
+    expect(questions[2].prompt).toContain("파워수술 인별합산 1구좌 가입가능");
+    expect(questions[3].prompt).toContain("1종*20배 < 5종가입금액");
+    expect(questions[4].prompt).toContain("1000 → 2000");
+    expect(questions[5].prompt).toContain("적용 시점 관련 표현");
+    expect(questions.map((question) => question.prompt).join(" ")).not.toContain("뇌혈관 진단");
   });
 
   it("asks for confirmation when the requested limit matches the current master value", () => {
@@ -506,9 +503,66 @@ describe("draft request normalization", () => {
       memos
     );
 
-    expect(questionGroups.coreQuestions[1].prompt).toEqual(
-      expect.stringContaining("변경이 없는 상태")
+    expect(questionGroups.coreQuestions).toHaveLength(3);
+    expect(questionGroups.coreQuestions[0].prompt).toEqual(
+      expect.stringContaining("기준이 되는 특약명 또는 보험코드")
     );
+    expect(questionGroups.coreQuestions[1].prompt).toEqual(
+      expect.stringContaining("대상을 확정한 뒤에만")
+    );
+  });
+
+  it("keeps review note questions scoped to the selected target special item", () => {
+    const masterProduct = {
+      id: "guide-실버보험-Sheet1-LP030405",
+      productCode: "LP030405",
+      insuranceCode: "LI10111 외 9건",
+      productName: "실버보험",
+      saleDate: "2026-05-01",
+      sourceFileName: "실버보험 신계약가이드라인.xlsx",
+      sheetName: "Sheet1",
+      specialItems: [
+        { specialName: "뇌혈관진단", insuranceCode: "LI10112", noteText: "주1" },
+        { specialName: "허혈심사진단", insuranceCode: "LI10113", noteText: "주2" },
+        { specialName: "파워수술 1종", insuranceCode: "LI10115", noteText: "주3 1종*20배 < 5종가입금액" }
+      ],
+      noteEntries: [
+        { noteLabel: "주1", noteText: "뇌혈관 진단 인별합산 한도 2000만 (66세 이상 1천만)", noteType: "계산식" },
+        { noteLabel: "주2", noteText: "허혈심장진단 인별합산 한도 2천만 (66세 이상 500만)", noteType: "계산식" },
+        { noteLabel: "주3", noteText: "파워수술 인별합산 1구좌 가입가능", noteType: "계산식" }
+      ],
+      insuranceCodeMapping:
+        "뇌혈관진단: LI10112 / 허혈심사진단: LI10113 / 파워수술 1종: LI10115",
+      summary: "상품코드 LP030405 / 보험코드 LI10112 외 9건 기준 / 판매일자 2026-05-01"
+    } satisfies ParsedProductCandidate;
+
+    const selectedTargetCandidate = buildTargetCandidates(
+      "허혈심사진단 5천으로 변경",
+      [masterProduct]
+    )[0];
+
+    const memos = buildReviewMemos({
+      masterFileNames: ["실버보험 신계약가이드라인.xlsx"],
+      changeFileNames: [],
+      rawInput: "허혈심사진단 5천으로 변경",
+      productName: "실버보험"
+    });
+
+    const questions = buildReviewQuestionGroups(
+      {
+        masterFileNames: ["실버보험 신계약가이드라인.xlsx"],
+        changeFileNames: [],
+        rawInput: "허혈심사진단 5천으로 변경",
+        productName: "실버보험",
+        masterProducts: [masterProduct],
+        selectedTargetCandidate
+      },
+      memos
+    );
+
+    expect(questions.detailQuestions[0].prompt).toContain("허혈심사진단");
+    expect(questions.detailQuestions.map((question) => question.prompt).join(" ")).not.toContain("뇌혈관");
+    expect(questions.detailQuestions.map((question) => question.prompt).join(" ")).not.toContain("파워수술");
   });
 
   it("keeps identical footnote labels separated by source file so insurance-code mapping does not leak across products", () => {

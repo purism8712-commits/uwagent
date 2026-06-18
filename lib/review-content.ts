@@ -1,5 +1,7 @@
 import type { ReviewMemo, ReviewQuestion } from "@/lib/sample-data";
 import type { ParsedNoteEntry, ParsedProductCandidate } from "@/lib/product-candidate-parser";
+import type { TargetCandidate } from "@/lib/target-resolution";
+import { buildTargetCandidates } from "@/lib/target-resolution";
 import {
   extractRequestedLimitValue,
   matchesDelimitedTerm,
@@ -12,6 +14,7 @@ type ReviewContentContext = {
   rawInput: string;
   productName: string;
   masterProducts?: ParsedProductCandidate[];
+  selectedTargetCandidate?: TargetCandidate | null;
 };
 
 type NoteQuestionCandidate = {
@@ -70,39 +73,40 @@ function formatCodeList(values: Iterable<string>) {
   return Array.from(new Set(Array.from(values).map((value) => normalizeText(value)).filter(Boolean)));
 }
 
-function collectChangeTargetTerms(rawInput: string, masterProducts: ParsedProductCandidate[] = []) {
-  const normalizedInput = normalizeText(rawInput);
-  if (!normalizedInput) {
-    return new Set<string>();
+function collectTargetTerms(
+  rawInput: string,
+  masterProducts: ParsedProductCandidate[] = [],
+  selectedTargetCandidate?: TargetCandidate | null
+) {
+  const matchedTerms = new Set<string>();
+
+  if (selectedTargetCandidate) {
+    [
+      selectedTargetCandidate.specialName,
+      selectedTargetCandidate.insuranceCode
+    ]
+      .map((value) => normalizeText(value))
+      .filter(Boolean)
+      .forEach((value) => matchedTerms.add(value));
+    return matchedTerms;
   }
 
-  const knownTerms = new Set<string>();
+  const normalizedInput = normalizeText(rawInput);
+  if (!normalizedInput) {
+    return matchedTerms;
+  }
 
   for (const product of masterProducts) {
     for (const item of product.specialItems ?? []) {
       const specialName = normalizeText(item.specialName);
       const insuranceCode = normalizeText(item.insuranceCode);
       const productName = normalizeText(product.productName);
+      const productCode = normalizeText(product.productCode ?? "");
 
-      if (specialName) {
-        knownTerms.add(specialName);
+      const candidateTerms = [specialName, insuranceCode, productName, productCode].filter(Boolean);
+      if (candidateTerms.some((term) => term && matchesDelimitedTerm(normalizedInput, term))) {
+        candidateTerms.forEach((term) => matchedTerms.add(term));
       }
-
-      if (insuranceCode) {
-        knownTerms.add(insuranceCode);
-      }
-
-      if (productName) {
-        knownTerms.add(productName);
-      }
-    }
-  }
-
-  const matchedTerms = new Set<string>();
-
-  for (const term of knownTerms) {
-    if (term && matchesDelimitedTerm(normalizedInput, term)) {
-      matchedTerms.add(term);
     }
   }
 
@@ -220,10 +224,11 @@ function candidateMatchesTarget(candidate: NoteQuestionCandidate, targetTerms: S
 
 function buildNoteQuestionCandidates(
   masterProducts: ParsedProductCandidate[] = [],
-  rawInput = ""
+  rawInput = "",
+  selectedTargetCandidate?: TargetCandidate | null
 ) {
   const candidates = new Map<string, NoteQuestionCandidate>();
-  const targetTerms = collectChangeTargetTerms(rawInput, masterProducts);
+  const targetTerms = collectTargetTerms(rawInput, masterProducts, selectedTargetCandidate);
 
   for (const product of masterProducts) {
     const footnoteByLabel = new Map(
@@ -306,6 +311,7 @@ function buildNoteQuestionPrompt(candidate: NoteQuestionCandidate, index: number
   if (candidate.noteType === "계산식" || candidate.noteType === "예외") {
     return {
       id: `question-note-${index + 1}`,
+      label: `질문 ${index + 1}`,
       prompt: `계산식/예외 주석 "${noteSnippet}"은 ${specialText}${codeText}${productText}에 연결되어 있습니다. ${sharedContext}`,
       hint: "예: 유지 / 함께 수정 / 별도 검토"
     };
@@ -313,6 +319,7 @@ function buildNoteQuestionPrompt(candidate: NoteQuestionCandidate, index: number
 
   return {
     id: `question-note-${index + 1}`,
+    label: `질문 ${index + 1}`,
     prompt: `주석 원문 "${noteSnippet}"은 ${specialText}${codeText}${productText}에 연결되어 있습니다. ${sharedContext}`,
     hint: "예: 모두 반영 / 일부만 반영 / 주석 분리"
   };
@@ -361,36 +368,54 @@ function collectMatchedChangeItems(context: ReviewContentContext): MatchedChange
 function buildCoreConfirmationQuestions(
   context: ReviewContentContext
 ): ReviewQuestion[] {
-  const matchedItems = collectMatchedChangeItems(context);
+  const targetCandidates = context.selectedTargetCandidate
+    ? [context.selectedTargetCandidate]
+    : buildTargetCandidates(context.rawInput, context.masterProducts ?? []);
   const requestedLimitValue = extractRequestedLimitValue(context.rawInput);
 
-  if (matchedItems.length === 0) {
-    return [];
+  if (!context.selectedTargetCandidate) {
+    if (targetCandidates.length > 1) {
+      return [];
+    }
+
+    if (!normalizeSearchText(context.rawInput)) {
+      return [];
+    }
+
+    return [
+      {
+        id: "core-question-1",
+        label: "핵심 1",
+        prompt: `입력한 변경에서 기준이 되는 특약명 또는 보험코드를 먼저 알려주세요.`,
+        hint: "예: 소액암진단 / LI00113 / 뇌혈관진단 / LI10112"
+      },
+      {
+        id: "core-question-2",
+        label: "핵심 2",
+        prompt: `대상을 확정한 뒤에만 한도·주석·예외를 함께 연결해 초안을 만들 수 있습니다.`,
+        hint: "예: 대상 확정 후 진행"
+      },
+      {
+        id: "core-question-3",
+        label: "핵심 3",
+        prompt: `변경 대상을 다시 입력하거나 후보에서 직접 선택해 주세요.`,
+        hint: "예: 후보 선택 / 입력 수정"
+      }
+    ];
   }
 
-  const primaryItem = matchedItems[0];
-  const targetNames = Array.from(
-    new Set(
-      matchedItems
-        .map((item) => item.specialName || item.productName)
-        .filter(Boolean)
-    )
-  );
-  const targetCodes = Array.from(
-    new Set(matchedItems.map((item) => item.insuranceCode).filter(Boolean))
-  );
+  const primaryItem = targetCandidates[0];
   const targetText =
-    targetNames.length > 0
-      ? targetNames.join(" / ")
-      : primaryItem.specialName || primaryItem.productName || "대상 특약";
-  const codeText = targetCodes.length > 0 ? ` / 보험코드 ${targetCodes.join(" / ")}` : "";
+    primaryItem.specialName || primaryItem.productName || "대상 특약";
+  const codeText = primaryItem.insuranceCode ? ` / 보험코드 ${primaryItem.insuranceCode}` : "";
   const currentLimit = primaryItem.limitValue || requestedLimitValue || "변경값 미확인";
   const coreQuestions: ReviewQuestion[] = [];
 
   coreQuestions.push({
     id: "core-question-1",
+    label: "핵심 1",
     prompt:
-      matchedItems.length > 1
+      targetCandidates.length > 1
         ? `입력한 변경은 ${targetText}${codeText} 중 어느 특약에만 적용할까요?`
         : `입력한 변경 대상이 ${targetText}${codeText} 맞나요?`,
     hint: "예: 이 특약만 적용 / 여러 특약 함께 적용 / 대상 수정"
@@ -399,6 +424,7 @@ function buildCoreConfirmationQuestions(
   if (requestedLimitValue) {
     coreQuestions.push({
       id: "core-question-2",
+      label: "핵심 2",
       prompt:
         currentLimit.replace(/,/g, "") === requestedLimitValue
           ? `현재 기준 ${targetText}의 단일건 한도는 ${currentLimit}이고 직접입력 값도 ${requestedLimitValue}로 같아 보입니다. 실제로 변경이 맞는지 다시 확인해 주세요.`
@@ -409,6 +435,7 @@ function buildCoreConfirmationQuestions(
 
   coreQuestions.push({
     id: "core-question-3",
+    label: "핵심 3",
     prompt: `이 특약과 연결된 주석·예외까지 함께 바꿀까요, 아니면 특약 한도만 먼저 변경할까요?`,
     hint: "예: 주석까지 함께 반영 / 특약만 변경 / 별도 검토"
   });
@@ -418,66 +445,28 @@ function buildCoreConfirmationQuestions(
 
 function buildDetailReviewQuestions(
   context: ReviewContentContext,
-  reviewMemos: ReviewMemo[]
+  reviewMemos: ReviewMemo[],
+  selectedTargetCandidate?: TargetCandidate | null
 ): ReviewQuestion[] {
   const masterLabel = pickPrimaryLabel(context.masterFileNames, "기준파일");
   const changeLabel = pickPrimaryLabel(context.changeFileNames, "변경파일");
   const inputSummary = summarizeText(context.rawInput, "직접입력 없음");
   const changeSummary = summarizeChange(context.rawInput);
   const productLabel = context.productName.trim() || "상품";
-  const noteCandidates = buildNoteQuestionCandidates(context.masterProducts ?? [], context.rawInput);
+  const noteCandidates = buildNoteQuestionCandidates(
+    context.masterProducts ?? [],
+    context.rawInput,
+    selectedTargetCandidate
+  );
   const noteQuestions = noteCandidates.map((candidate, index) =>
     buildNoteQuestionPrompt(candidate, index)
   );
-
-  const questions: ReviewQuestion[] = [
-    ...noteQuestions,
-    {
-      id: "question-1",
-      prompt: `${reviewMemos[0]?.title ?? masterLabel} 메모에 따라, ${masterLabel}의 각 파일을 표준 템플릿으로 먼저 변환한 뒤 머지할까요?`,
-      hint: `예: ${masterLabel} 파일별 표준화 후 통합`
-    },
-    {
-      id: "question-2",
-      prompt: `${reviewMemos[1]?.title ?? changeLabel} 메모를 기준으로, ${changeLabel}에서 가장 먼저 반영할 변경은 무엇인가요?`,
-      hint: "예: 한도 변경 / 예외 문구 수정 / 적용일 조정"
-    },
-    {
-      id: "question-3",
-      prompt: `직접입력 요약 "${inputSummary}"를 기준으로 변경값을 ${changeSummary}로 확정할까요?`,
-      hint: "예: 확정 / 추가 확인 필요"
-    },
-    {
-      id: "question-4",
-      prompt: `${reviewMemos[2]?.title ?? "상품 추출 기준"}에 따라, ${productLabel} 추출 시 기준파일과 변경파일 중 어느 쪽을 최종 기준으로 둘까요?`,
-      hint: "예: 통합 마스터 우선 / 변경파일 우선"
-    },
-    {
-      id: "question-5",
-      prompt: `파일별 머지 후 남길 검토메모나 보류 사항이 있나요?`,
-      hint: "예: 66세 이상 예외 / 시행일 미정"
-    }
-  ];
-
-  if (context.masterFileNames.length > 1) {
-    questions.push({
-      id: "question-6",
-      prompt: `${masterLabel} 외에 업로드된 기준 파일도 같은 표준 템플릿으로 함께 머지할까요?`,
-      hint: "예: 모두 머지 / 일부만 머지 / 우선순위 지정"
-    });
-  }
-
-  if (context.changeFileNames.length > 1) {
-    questions.push({
-      id: "question-7",
-      prompt: `${changeLabel}가 여러 개이므로, 변경 파일들을 모두 반영할지 아니면 대표 파일만 기준으로 둘지 정해 주세요.`,
-      hint: "예: 모두 반영 / 대표 파일 우선 / 파일별 분리 검토"
-    });
-  }
+  const questions: ReviewQuestion[] = [...noteQuestions];
 
   if (/66세|65세|70세|예외|한도/.test(context.rawInput)) {
     questions.push({
-      id: "question-8",
+      id: "question-1",
+      label: "질문 1",
       prompt: `직접입력에서 감지된 예외/한도 조건("${changeSummary}")을 최종 초안에 그대로 둘까요, 별도 검토 메모로 남길까요?`,
       hint: "예: 초안 반영 / 검토 메모 유지"
     });
@@ -485,7 +474,8 @@ function buildDetailReviewQuestions(
 
   if (/시행|적용일|예정/.test(context.rawInput)) {
     questions.push({
-      id: "question-9",
+      id: "question-2",
+      label: "질문 2",
       prompt: `적용 시점 관련 표현을 ${productLabel} 기준으로 확정해도 될까요?`,
       hint: "예: 즉시 반영 / 시행예정 유지 / 적용일 미정"
     });
@@ -505,7 +495,11 @@ export function buildReviewQuestionGroups(
     ...question,
     label: `핵심 ${index + 1}`
   }));
-  const detailQuestions = buildDetailReviewQuestions(context, reviewMemos);
+  const detailQuestions = buildDetailReviewQuestions(
+    context,
+    reviewMemos,
+    context.selectedTargetCandidate
+  );
 
   return {
     coreQuestions,
@@ -523,20 +517,20 @@ export function buildReviewMemos(
   return [
     {
       id: "memo-1",
-      title: `${masterLabel} 중심 검토`,
-      description: `${masterLabel} 기준으로 초안을 먼저 맞추고 ${changeLabel}와 보험코드로 연결된 주석/예외가 함께 바뀌는지 확인합니다.`,
-      status: "검토 필요"
+      title: "기본 규칙",
+      description: `${masterLabel}는 표준 템플릿으로 먼저 변환한 뒤 통합하고, 반복 확인은 고정 규칙으로 처리합니다.`,
+      status: "참고"
     },
     {
       id: "memo-2",
-      title: `${changeLabel} 반영 여부 확인`,
-      description: `변경 내용 요약 "${inputSummary}"가 통합 마스터의 같은 특약/보험코드/주석 묶음 전체에 반영될지 사람 확인이 필요합니다.`,
-      status: "검토 필요"
+      title: "대상 반영 규칙",
+      description: `${changeLabel}에서 감지된 변경 요약 "${inputSummary}"는 선택된 특약명·보험코드에만 반영하고, as-is와 to-be가 같으면 변경 없음으로 둡니다.`,
+      status: "참고"
     },
     {
       id: "memo-3",
-      title: "상품 추출 기준 정리",
-      description: `${context.productName.trim() || "상품"} 추출 시 기준파일과 변경파일 중 어떤 것을 우선할지 확인합니다.`,
+      title: "상품 추출 기준",
+      description: `${context.productName.trim() || "상품"} 추출은 통합 마스터 우선으로 정리하고, 예외만 별도 질문으로 넘깁니다.`,
       status: "참고"
     }
   ];

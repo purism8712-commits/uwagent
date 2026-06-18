@@ -165,6 +165,15 @@ describe("Common core app flow", () => {
   }
 
   async function completeCoreConfirmation(user: ReturnType<typeof userEvent.setup>) {
+    const targetSelectionDialog = screen.queryByRole("dialog", {
+      name: "변경 대상 선택"
+    });
+
+    if (targetSelectionDialog) {
+      const targetButtons = within(targetSelectionDialog).getAllByRole("button");
+      await user.click(targetButtons[0]);
+    }
+
     const coreQuestionDialog = screen.queryByRole("dialog", {
       name: "핵심 확인 질문"
     });
@@ -182,6 +191,17 @@ describe("Common core app flow", () => {
       within(coreQuestionDialog).getByRole("button", { name: "핵심 확인 완료" })
     );
     await screen.findByText("검토 메모 및 확인질문");
+  }
+
+  async function fillReviewAnswers(
+    user: ReturnType<typeof userEvent.setup>,
+    prefix = "답변"
+  ) {
+    const answers = screen.queryAllByPlaceholderText("답변을 입력해 주세요.");
+    for (const [index, input] of answers.entries()) {
+      await user.type(input, `${prefix} ${index + 1}`);
+    }
+    return answers.length;
   }
 
   function getPreviewPayload() {
@@ -465,11 +485,44 @@ describe("Common core app flow", () => {
     expect(
       screen.getByRole("button", { name: "초안생성" })
     ).toBeInTheDocument();
-    expect(screen.getAllByPlaceholderText("답변을 입력해 주세요.")).toHaveLength(5);
+    expect(screen.queryAllByPlaceholderText("답변을 입력해 주세요.")).toHaveLength(0);
     expect(screen.queryByText("반영된 답변")).not.toBeInTheDocument();
+    expect(screen.getByText("기본 규칙")).toBeInTheDocument();
+  });
+
+  it("uses fixed review rules instead of repeating the generic step 3 questions", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (typeof input === "string" && input === "/api/master-workbook") {
+        return {
+          ok: true,
+          json: async () => ({ ok: true })
+        };
+      }
+
+      return {
+        ok: true,
+        json: async () => ({})
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<HomePage userSession={authorizedSession} />);
+
+    await createMasterWorkbook(user);
+    await user.type(
+      screen.getByLabelText("표 또는 자연어 입력"),
+      "소액암진단 단일건 한도를 1000에서 2000으로 변경"
+    );
+    await user.click(screen.getByRole("button", { name: "입력완료" }));
+    await completeCoreConfirmation(user);
+
+    expect(screen.getByText("기본 규칙")).toBeInTheDocument();
     expect(
-      screen.getByText(/master-guideline 중심 검토 메모에 따라, master-guideline의 각 파일을 표준 템플릿으로 먼저 변환한 뒤 머지할까요\?/i)
-    ).toBeInTheDocument();
+      screen.getAllByPlaceholderText("답변을 입력해 주세요.")
+    ).toHaveLength(1);
+    expect(screen.queryByText("질문 6")).not.toBeInTheDocument();
+    expect(screen.queryByText("질문 7")).not.toBeInTheDocument();
   });
 
   it("adds more review questions when the change text contains extra review triggers", async () => {
@@ -499,9 +552,9 @@ describe("Common core app flow", () => {
     await user.click(screen.getByRole("button", { name: "입력완료" }));
     await completeCoreConfirmation(user);
 
-    expect(screen.getAllByPlaceholderText("답변을 입력해 주세요.")).toHaveLength(7);
-    expect(screen.getByText("질문 6")).toBeInTheDocument();
-    expect(screen.getByText("질문 7")).toBeInTheDocument();
+    expect(screen.getAllByPlaceholderText("답변을 입력해 주세요.")).toHaveLength(2);
+    expect(screen.getByText("질문 1")).toBeInTheDocument();
+    expect(screen.getByText("질문 2")).toBeInTheDocument();
   });
 
   it("shows final summary and enables excel download after confirming the draft", async () => {
@@ -544,26 +597,7 @@ describe("Common core app flow", () => {
     await createMasterWorkbook(user);
     await user.click(screen.getByRole("button", { name: "입력완료" }));
     await completeCoreConfirmation(user);
-    await user.type(
-      screen.getAllByPlaceholderText("답변을 입력해 주세요.")[0],
-      "일반/건강과 간편 모두 2000으로 변경"
-    );
-    await user.type(
-      screen.getAllByPlaceholderText("답변을 입력해 주세요.")[1],
-      "인별합산 3000 유지"
-    );
-    await user.type(
-      screen.getAllByPlaceholderText("답변을 입력해 주세요.")[2],
-      "66세 이상 예외는 기존 기준 유지"
-    );
-    await user.type(
-      screen.getAllByPlaceholderText("답변을 입력해 주세요.")[3],
-      "연계조건 유지"
-    );
-    await user.type(
-      screen.getAllByPlaceholderText("답변을 입력해 주세요.")[4],
-      "시행예정 초안으로 유지"
-    );
+    await fillReviewAnswers(user);
     await user.click(screen.getByRole("button", { name: "초안생성" }));
 
     expect(await screen.findByRole("heading", { name: "초안 생성 결과" })).toBeInTheDocument();
@@ -579,6 +613,13 @@ describe("Common core app flow", () => {
     expect(
       screen.getByRole("button", { name: "통합 마스터 다운로드" })
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "최종 업로드" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "지원AGENT 연결" })
+    ).toHaveAttribute("href", "https://uw-guide.vercel.app/support-agent-app.html");
+    expect(
+      screen.getByRole("link", { name: "심사AGENT 연결" })
+    ).toHaveAttribute("href", "https://review-agent-lovat.vercel.app/");
     expect(
       screen.getByRole("button", { name: "상품 추출 다운로드" })
     ).toBeDisabled();
@@ -634,10 +675,7 @@ describe("Common core app flow", () => {
     await createMasterWorkbook(user);
     await user.click(screen.getByRole("button", { name: "입력완료" }));
     await completeCoreConfirmation(user);
-    const answers = screen.getAllByPlaceholderText("답변을 입력해 주세요.");
-    for (const [index, input] of answers.entries()) {
-      await user.type(input, `답변 ${index + 1}`);
-    }
+    await fillReviewAnswers(user);
     await user.click(screen.getByRole("button", { name: "초안생성" }));
 
     const extractInput = screen.getByPlaceholderText("예: 건강플러스암보험");
@@ -698,11 +736,7 @@ describe("Common core app flow", () => {
     await user.click(screen.getByRole("button", { name: "전체 통합 마스터 파일 만들기" }));
     await user.click(screen.getByRole("button", { name: "입력완료" }));
     await completeCoreConfirmation(user);
-
-    const answers = screen.getAllByPlaceholderText("답변을 입력해 주세요.");
-    for (const [index, input] of answers.entries()) {
-      await user.type(input, `답변 ${index + 1}`);
-    }
+    await fillReviewAnswers(user);
     await user.click(screen.getByRole("button", { name: "초안생성" }));
 
     const extractInput = screen.getByPlaceholderText("예: 건강플러스암보험");
@@ -768,10 +802,7 @@ describe("Common core app flow", () => {
 
     await user.click(screen.getByRole("button", { name: "입력완료" }));
     await completeCoreConfirmation(user);
-    const answers = screen.getAllByPlaceholderText("답변을 입력해 주세요.");
-    for (const [index, input] of answers.entries()) {
-      await user.type(input, `답변 ${index + 1}`);
-    }
+    await fillReviewAnswers(user);
     await user.click(screen.getByRole("button", { name: "초안생성" }));
 
     const extractInput = screen.getByPlaceholderText("예: 건강플러스암보험");
@@ -1031,10 +1062,7 @@ describe("Common core app flow", () => {
     await createMasterWorkbook(user);
     await user.click(screen.getByRole("button", { name: "입력완료" }));
     await completeCoreConfirmation(user);
-    const answers = screen.getAllByPlaceholderText("답변을 입력해 주세요.");
-    for (const [index, input] of answers.entries()) {
-      await user.type(input, `답변 ${index + 1}`);
-    }
+    await fillReviewAnswers(user);
     await user.click(screen.getByRole("button", { name: "초안생성" }));
     await user.click(await screen.findByRole("button", { name: "통합 마스터 다운로드" }));
 
@@ -1094,10 +1122,7 @@ describe("Common core app flow", () => {
     await user.type(screen.getByLabelText("표 또는 자연어 입력"), "소액암진단 5천으로 변경");
     await user.click(screen.getByRole("button", { name: "입력완료" }));
     await completeCoreConfirmation(user);
-    const answers = screen.getAllByPlaceholderText("답변을 입력해 주세요.");
-    for (const [index, input] of answers.entries()) {
-      await user.type(input, `답변 ${index + 1}`);
-    }
+    await fillReviewAnswers(user);
     await user.click(screen.getByRole("button", { name: "초안생성" }));
 
     expect(await screen.findByRole("heading", { name: "초안 생성 결과" })).toBeInTheDocument();
@@ -1144,6 +1169,9 @@ describe("Common core app flow", () => {
     );
     await user.click(screen.getByRole("button", { name: "입력완료" }));
 
+    const targetDialog = await screen.findByRole("dialog", { name: "변경 대상 선택" });
+    await user.click(within(targetDialog).getAllByRole("button")[0]);
+
     const coreDialog = await screen.findByRole("dialog", { name: "핵심 확인 질문" });
     const inputs = within(coreDialog).getAllByPlaceholderText("답변을 입력해 주세요.");
 
@@ -1179,16 +1207,17 @@ describe("Common core app flow", () => {
     render(<HomePage userSession={authorizedSession} />);
 
     await createMasterWorkbook(user);
+    await user.type(
+      screen.getByLabelText("표 또는 자연어 입력"),
+      "소액암진단 단일건 한도를 1000에서 2000으로 변경"
+    );
     await user.click(screen.getByRole("button", { name: "입력완료" }));
     await completeCoreConfirmation(user);
 
     const confirmButton = screen.getByRole("button", { name: "초안생성" });
     expect(confirmButton).toBeDisabled();
 
-    const answers = screen.getAllByPlaceholderText("답변을 입력해 주세요.");
-    for (const [index, input] of answers.entries()) {
-      await user.type(input, `답변 ${index + 1}`);
-    }
+    await fillReviewAnswers(user);
 
     expect(confirmButton).toBeEnabled();
   });
@@ -1214,10 +1243,7 @@ describe("Common core app flow", () => {
     await createMasterWorkbook(user);
     await user.click(screen.getByRole("button", { name: "입력완료" }));
     await completeCoreConfirmation(user);
-    const answers = screen.getAllByPlaceholderText("답변을 입력해 주세요.");
-    for (const [index, input] of answers.entries()) {
-      await user.type(input, `답변 ${index + 1}`);
-    }
+    await fillReviewAnswers(user);
 
     await user.click(screen.getByRole("button", { name: "초안생성" }));
 

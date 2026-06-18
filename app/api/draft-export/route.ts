@@ -34,6 +34,19 @@ function parseMasterProducts(value: string | null) {
   }
 }
 
+function parseSelectedTargetCandidate(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 async function createWorkbookResponse(
   payload: unknown,
   options?: { downloadName?: string; metaSheet?: Record<string, string>[] }
@@ -71,6 +84,9 @@ export async function GET(request: Request) {
   const uploadedFiles = parseFileList(searchParams.get("uploadedFiles"));
   const masterFiles = parseFileList(searchParams.get("masterFiles"));
   const masterProducts = parseMasterProducts(searchParams.get("masterProducts"));
+  const selectedTargetCandidate = parseSelectedTargetCandidate(
+    searchParams.get("selectedTargetCandidate")
+  );
   const combinedFiles = uniqueFiles([...masterFiles, ...uploadedFiles]);
   const baselineSnapshot = await masterWorkbookStore.load();
 
@@ -100,7 +116,8 @@ export async function GET(request: Request) {
       answers,
       productName,
       uploadedFiles: combinedFiles,
-      masterProducts
+      masterProducts,
+      selectedTargetCandidate
     },
     {
       downloadName,

@@ -12,7 +12,7 @@ type DraftExportOptions = {
   baselineRequest?: DraftRequest | null;
 };
 
-type WorksheetData = Record<string, string | number>[];
+type WorksheetData = Record<string, string | number | undefined>[];
 
 type CellAddress = {
   row: number;

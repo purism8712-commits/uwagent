@@ -3,6 +3,8 @@ import styles from "./components.module.css";
 import type { SampleProductOption } from "@/lib/sample-data";
 import type { DraftSummary } from "@/lib/draft-builder";
 import type { ParsedProductCandidate } from "@/lib/product-candidate-parser";
+import type { TargetCandidate } from "@/lib/target-resolution";
+import { summarizeTargetCandidate } from "@/lib/target-resolution";
 import { buildReviewMemos, buildReviewQuestionGroups } from "@/lib/review-content";
 
 type ReviewStageProps = {
@@ -18,14 +20,21 @@ type ReviewStageProps = {
   productName: string;
   productOptions: SampleProductOption[];
   masterProducts: ParsedProductCandidate[];
+  targetCandidates: TargetCandidate[];
+  selectedTargetCandidateId: string;
   isDownloadingMaster: boolean;
   isDownloadingProduct: boolean;
+  finalUploadStatus: string;
+  supportAgentUrl: string;
+  reviewAgentUrl: string;
   onAnswerChange: (id: string, value: string) => void;
   onProductNameChange: (value: string) => void;
   onProductSelect: (value: string) => void;
+  onTargetCandidateSelect: (id: string) => void;
   onConfirmDraft: () => void;
   onDownloadMaster: () => void;
   onDownloadProduct: () => void;
+  onFinalizeUpload: () => void;
 };
 
 export function ReviewStage({
@@ -41,16 +50,24 @@ export function ReviewStage({
   productName,
   productOptions,
   masterProducts,
+  targetCandidates,
+  selectedTargetCandidateId,
   isDownloadingMaster,
   isDownloadingProduct,
+  finalUploadStatus,
+  supportAgentUrl,
+  reviewAgentUrl,
   onAnswerChange,
   onProductNameChange,
   onProductSelect,
+  onTargetCandidateSelect,
   onConfirmDraft,
   onDownloadMaster,
-  onDownloadProduct
+  onDownloadProduct,
+  onFinalizeUpload
 }: ReviewStageProps) {
   const [isCoreQuestionWindowOpen, setIsCoreQuestionWindowOpen] = useState(false);
+  const [isTargetSelectionWindowOpen, setIsTargetSelectionWindowOpen] = useState(false);
   const normalizedKeyword = productName.trim().toLowerCase();
   const matchedProducts = normalizedKeyword
     ? productOptions.filter((product) =>
@@ -70,6 +87,10 @@ export function ReviewStage({
     rawInput,
     productName
   });
+  const selectedTargetCandidate = useMemo(
+    () => targetCandidates.find((candidate) => candidate.id === selectedTargetCandidateId) ?? null,
+    [selectedTargetCandidateId, targetCandidates]
+  );
   const { coreQuestions, detailQuestions } = useMemo(
     () =>
       buildReviewQuestionGroups(
@@ -78,11 +99,20 @@ export function ReviewStage({
           changeFileNames,
           rawInput,
           productName,
-          masterProducts
+          masterProducts,
+          selectedTargetCandidate
         },
         reviewMemos
       ),
-    [changeFileNames, masterFileNames, masterProducts, rawInput, productName, reviewMemos]
+    [
+      changeFileNames,
+      masterFileNames,
+      masterProducts,
+      rawInput,
+      productName,
+      reviewMemos,
+      selectedTargetCandidate
+    ]
   );
   const coreQuestionSignature = useMemo(
     () => coreQuestions.map((question) => question.id).join("|"),
@@ -95,6 +125,26 @@ export function ReviewStage({
     (question) => !(answers[question.id] ?? "").trim()
   );
   useEffect(() => {
+    if (targetCandidates.length === 1 && !selectedTargetCandidate && !finalSummary) {
+      onTargetCandidateSelect(targetCandidates[0].id);
+    }
+  }, [finalSummary, onTargetCandidateSelect, selectedTargetCandidate, targetCandidates]);
+  useEffect(() => {
+    const shouldLockScroll = isCoreQuestionWindowOpen || isTargetSelectionWindowOpen;
+
+    if (!shouldLockScroll || typeof document === "undefined") {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isCoreQuestionWindowOpen, isTargetSelectionWindowOpen]);
+  useEffect(() => {
+    setIsTargetSelectionWindowOpen(targetCandidates.length > 1 && !selectedTargetCandidate && !finalSummary);
     setIsCoreQuestionWindowOpen(coreQuestions.length > 0 && !finalSummary);
   }, [
     coreQuestionSignature,
@@ -103,10 +153,16 @@ export function ReviewStage({
     masterFileNames,
     masterProducts,
     productName,
-    rawInput
+    rawInput,
+    selectedTargetCandidate,
+    targetCandidates
   ]);
   const reviewQuestions = detailQuestions;
   const canCloseCoreQuestionWindow = !hasUnansweredCoreQuestion;
+  const isQuestionFlowLocked = isCoreQuestionWindowOpen || isTargetSelectionWindowOpen;
+  const targetCandidateSummary = selectedTargetCandidate
+    ? summarizeTargetCandidate(selectedTargetCandidate)
+    : "";
   const beforeValueLabel = finalSummary?.beforeValue.replace(/^단일건\s*/, "") ?? "";
   const afterValueLabel = finalSummary?.afterValue.replace(/^단일건\s*/, "") ?? "";
   const finalSummaryBrief = finalSummary
@@ -117,20 +173,85 @@ export function ReviewStage({
 
   return (
     <section className={styles.stepFlowStack}>
+      {isTargetSelectionWindowOpen ? (
+        <div
+          className={styles.coreQuestionOverlay}
+          onWheel={(event) => event.stopPropagation()}
+          onTouchMove={(event) => event.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label="변경 대상 선택"
+        >
+          <article className={styles.coreQuestionWindow}>
+            <div className={styles.coreQuestionWindowHeader}>
+              <div>
+                <span className={styles.panelLabel}>변경 대상 확인 창</span>
+                <h3 className={styles.panelTitle}>가장 가까운 특약 후보를 먼저 골라 주세요</h3>
+              </div>
+              <span className={styles.statusPill}>후보 선택 필요</span>
+            </div>
+            <p className={styles.panelText}>
+              자연어 입력에서 여러 특약이 겹쳐 보입니다. 아래 후보 중 실제로 바꿀
+              특약과 보험코드를 먼저 선택하면, 그 다음 핵심 질문이 이어집니다.
+            </p>
+
+            <div className={styles.targetSelectionList}>
+              {targetCandidates.slice(0, 3).map((candidate, index) => (
+                <button
+                  key={candidate.id}
+                  className={styles.targetCandidateCard}
+                  type="button"
+                  onClick={() => {
+                    onTargetCandidateSelect(candidate.id);
+                    setIsTargetSelectionWindowOpen(false);
+                  }}
+                >
+                  <span className={styles.targetCandidateRank}>{`후보 ${index + 1}`}</span>
+                  <strong className={styles.targetCandidateTitle}>
+                    {candidate.specialName || candidate.productName}
+                  </strong>
+                  <span className={styles.targetCandidateMeta}>
+                    {candidate.insuranceCode ? `보험코드 ${candidate.insuranceCode}` : "보험코드 미기재"}
+                    {candidate.productCode ? ` · 상품코드 ${candidate.productCode}` : ""}
+                  </span>
+                  <span className={styles.targetCandidateMeta}>
+                    {candidate.productName}
+                    {candidate.saleDate ? ` · 판매일자 ${candidate.saleDate}` : ""}
+                  </span>
+                  <span className={styles.targetCandidateReason}>{candidate.matchReason}</span>
+                </button>
+              ))}
+            </div>
+          </article>
+        </div>
+      ) : null}
+
       {isCoreQuestionWindowOpen ? (
-        <div className={styles.coreQuestionOverlay} role="dialog" aria-modal="true" aria-label="핵심 확인 질문">
+        <div
+          className={styles.coreQuestionOverlay}
+          onWheel={(event) => event.stopPropagation()}
+          onTouchMove={(event) => event.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label="핵심 확인 질문"
+        >
           <article className={styles.coreQuestionWindow}>
             <div className={styles.coreQuestionWindowHeader}>
               <div>
                 <span className={styles.panelLabel}>서브 확인 창</span>
-                <h3 className={styles.panelTitle}>가장 중요한 변경 확인 질문</h3>
+                <h3 className={styles.coreQuestionTitle}>가장 중요한 변경 확인 질문</h3>
               </div>
               <span className={styles.statusPill}>핵심 확인 필요</span>
             </div>
-            <p className={styles.panelText}>
+            <p className={styles.coreQuestionText}>
               변경 대상을 먼저 정확히 맞춘 뒤, 보험코드와 주석 기준의 상세 질문으로
               넘어갑니다.
             </p>
+            {targetCandidateSummary ? (
+              <p className={styles.coreQuestionFooterCopy}>
+                현재 선택된 대상: {targetCandidateSummary}
+              </p>
+            ) : null}
 
             <div className={styles.coreQuestionList}>
               {coreQuestions.map((question, index) => (
@@ -153,11 +274,11 @@ export function ReviewStage({
             </div>
 
             <div className={styles.coreQuestionFooter}>
-              <p className={styles.currentGuidelinesFootnote}>
+              <p className={styles.coreQuestionFooterCopy}>
                 핵심 질문이 모두 채워지면 아래 상세 질문과 검토 메모가 이어서 열립니다.
               </p>
               <button
-                className={styles.primaryButton}
+                className={`${styles.primaryButton} ${styles.coreQuestionActionButton}`}
                 type="button"
                 onClick={() => setIsCoreQuestionWindowOpen(false)}
                 disabled={!canCloseCoreQuestionWindow}
@@ -246,7 +367,7 @@ export function ReviewStage({
             </div>
           </section>
 
-          {!isCoreQuestionWindowOpen ? (
+          {!isQuestionFlowLocked ? (
             <>
               <div className={styles.questionSpacer} aria-hidden="true" />
 
@@ -273,8 +394,8 @@ export function ReviewStage({
           ) : (
             <div className={styles.detailQuestionsLocked}>
               <p className={styles.currentGuidelinesFootnote}>
-                핵심 확인 창에서 대상 특약과 변경값을 먼저 확정하면, 아래 상세 질문이
-                열립니다.
+                대상 특약을 먼저 확정한 뒤 핵심 질문을 마치면, 아래 상세 질문이
+                이어서 열립니다.
               </p>
             </div>
           )}
@@ -290,7 +411,7 @@ export function ReviewStage({
                 hasUnansweredDetailQuestion ||
                 isSubmitting ||
                 !isMasterCreated ||
-                isCoreQuestionWindowOpen
+                isQuestionFlowLocked
               }
             >
               {isSubmitting ? "초안 생성 중..." : "초안생성"}
@@ -453,6 +574,44 @@ export function ReviewStage({
               <p className={styles.downloadHintText}>
                 다운로드가 시작되면 브라우저의 파일 열기/저장 안내를 확인해 주세요.
               </p>
+            </div>
+
+            <div className={styles.finalUploadCard}>
+              <div>
+                <h4 className={styles.finalSummaryHeading}>최종 반영 및 연결</h4>
+                <p className={styles.finalUploadText}>
+                  변경된 통합 마스터를 다시 저장하고, 지원/심사 에이전트로 바로 이동합니다.
+                </p>
+              </div>
+              <div className={styles.finalUploadActions}>
+                <button
+                  className={styles.primaryButton}
+                  type="button"
+                  onClick={onFinalizeUpload}
+                  disabled={isActionDisabled || isSubmitting || !isMasterCreated}
+                >
+                  최종 업로드
+                </button>
+                <a
+                  className={styles.secondaryButton}
+                  href={supportAgentUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  지원AGENT 연결
+                </a>
+                <a
+                  className={styles.secondaryButton}
+                  href={reviewAgentUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  심사AGENT 연결
+                </a>
+              </div>
+              {finalUploadStatus ? (
+                <p className={styles.finalUploadStatus}>{finalUploadStatus}</p>
+              ) : null}
             </div>
           </article>
         </>

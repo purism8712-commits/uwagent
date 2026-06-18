@@ -1,7 +1,7 @@
 .pageShell {
   width: min(1440px, calc(100vw - 96px));
   margin: 0 auto;
-  padding: 24px 0 72px;
+  padding: 0 0 72px;
 }
 
 .heroGrid {
@@ -113,6 +113,370 @@
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.agentHubShell {
+  display: grid;
+  gap: 18px;
+}
+
+.agentHubTabsWrap {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px 20px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(156, 176, 209, 0.72);
+  box-shadow: 0 8px 24px rgba(98, 122, 165, 0.08);
+}
+
+.agentHubSessionStrip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 6px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(37, 71, 160, 0.08), rgba(37, 71, 160, 0.04));
+  border: 1px solid rgba(156, 176, 209, 0.7);
+}
+
+.agentHubSessionCopy {
+  display: grid;
+  gap: 2px;
+}
+
+.agentHubSessionLabel {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.agentHubSessionName {
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.agentHubSessionMeta {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.agentHubTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.agentHubTabButton {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 150px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(134, 156, 192, 0.72);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--navy);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(98, 122, 165, 0.08);
+}
+
+.agentHubTabButtonActive {
+  background: linear-gradient(180deg, #ffffff 0%, #e5f0ff 100%);
+  border-color: rgba(122, 169, 240, 0.98);
+  box-shadow: 0 10px 20px rgba(98, 122, 165, 0.14);
+}
+
+.agentHubTabBody {
+  display: grid;
+  gap: 18px;
+}
+
+.agentHubTabSection {
+  display: grid;
+  gap: 16px;
+}
+
+.agentHubTabIntro {
+  display: grid;
+  gap: 8px;
+}
+
+.agentHubPanel {
+  display: grid;
+  gap: 18px;
+  padding: 24px 28px;
+  border-radius: 24px;
+  border: 1px solid rgba(110, 145, 200, 0.92);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  box-shadow: 0 10px 26px rgba(98, 122, 165, 0.11);
+}
+
+.agentPreviewHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.agentPreviewTitleBlock {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.agentPreviewIcon {
+  display: inline-grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #7a4df0 0%, #5a35e7 100%);
+  color: #fff;
+  font-size: 25px;
+  box-shadow: 0 10px 22px rgba(90, 53, 231, 0.2);
+  flex: 0 0 auto;
+}
+
+.agentPreviewBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: #ece5ff;
+  color: #6a44ea;
+  font-size: 14px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.agentPreviewSurface {
+  display: grid;
+  gap: 16px;
+}
+
+.agentPreviewApp {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, #faf8ff 0%, #ffffff 100%);
+  border: 1px solid rgba(180, 165, 255, 0.42);
+}
+
+.agentPreviewAppSection {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 22px;
+  background: #fff;
+  border: 1px solid rgba(156, 176, 209, 0.72);
+  box-shadow: 0 8px 18px rgba(98, 122, 165, 0.08);
+}
+
+.agentPreviewCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.agentPreviewSectionTitle {
+  margin: 0;
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.agentPreviewStatusPill,
+.agentPreviewEditPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: #eef5ff;
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.agentPreviewEditPill {
+  background: #f0ecff;
+  color: #6a44ea;
+}
+
+.agentPreviewUploadRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(156, 176, 209, 0.72);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.agentPreviewUploadInfo {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.agentPreviewUploadFile {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.agentPreviewUploadText,
+.agentPreviewHint,
+.agentPreviewSummaryText {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.agentPreviewDisabledButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 132px;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 14px;
+  border: 1px solid #d7deeb;
+  background: #6a7280;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: default;
+}
+
+.agentPreviewPrimaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  padding: 0 22px;
+  border-radius: 16px;
+  border: 0;
+  background: #6a7280;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: default;
+}
+
+.agentPreviewHint {
+  color: var(--navy);
+  font-weight: 700;
+}
+
+.agentPreviewFieldLabel {
+  display: grid;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.agentPreviewInput {
+  width: 100%;
+  min-height: 56px;
+  padding: 0 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(156, 176, 209, 0.72);
+  background: #fff;
+  color: var(--ink);
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.agentPreviewSummaryCard {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(156, 176, 209, 0.6);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.agentHubActionArea {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: #eef5ff;
+  border: 1px solid rgba(156, 176, 209, 0.72);
+}
+
+.agentHubActionCopy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.agentHubActionLabel {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.agentHubActionUrl {
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.agentHubActionHint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.agentHubStatusRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.agentHubStatusPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #edf4ff;
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.agentHubStatusText {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .sessionBar {
@@ -421,19 +785,19 @@
   inset: 0;
   z-index: 80;
   display: grid;
-  place-items: center;
-  padding: 12px;
+  place-items: start center;
+  padding: 10px 12px;
   background: rgba(8, 18, 43, 0.52);
   backdrop-filter: blur(4px);
 }
 
 .coreQuestionWindow {
-  width: min(960px, 100%);
-  max-height: min(78vh, 820px);
+  width: min(900px, 100%);
+  max-height: calc(100vh - 20px);
   display: grid;
-  gap: 10px;
-  padding: 16px 18px;
-  border-radius: 20px;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 18px;
   border: 1px solid rgba(156, 176, 209, 0.92);
   background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
   box-shadow: 0 18px 42px rgba(8, 18, 43, 0.24);
@@ -444,13 +808,13 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .coreQuestionList {
   display: grid;
-  gap: 8px;
-  max-height: min(42vh, 440px);
+  gap: 6px;
+  max-height: min(28vh, 280px);
   overflow-y: auto;
   padding-right: 6px;
 }
@@ -469,11 +833,104 @@
   border-radius: 999px;
 }
 
+.targetSelectionList {
+  display: grid;
+  gap: 10px;
+  max-height: min(42vh, 420px);
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.targetSelectionList::-webkit-scrollbar {
+  width: 10px;
+}
+
+.targetSelectionList::-webkit-scrollbar-thumb {
+  background: #c8d4e8;
+  border-radius: 999px;
+}
+
+.targetSelectionList::-webkit-scrollbar-track {
+  background: #eff4fb;
+  border-radius: 999px;
+}
+
+.targetCandidateCard {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 14px;
+  text-align: left;
+  border-radius: 16px;
+  border: 1px solid rgba(156, 176, 209, 0.88);
+  background: linear-gradient(180deg, #ffffff 0%, #f5f9ff 100%);
+  color: var(--ink);
+  box-shadow: 0 8px 18px rgba(98, 122, 165, 0.08);
+}
+
+.targetCandidateCard:hover {
+  border-color: rgba(94, 136, 214, 0.98);
+  box-shadow: 0 10px 24px rgba(98, 122, 165, 0.12);
+}
+
+.targetCandidateRank {
+  display: inline-flex;
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #eef3fc;
+  color: var(--navy);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.targetCandidateTitle {
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.targetCandidateMeta {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.targetCandidateReason {
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .coreQuestionFooter {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
+}
+
+.coreQuestionTitle {
+  margin: 12px 0 8px;
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+
+.coreQuestionText {
+  margin: 0 0 14px;
+  color: var(--muted);
+  line-height: 1.55;
+  font-size: 14px;
+}
+
+.coreQuestionFooterCopy {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.coreQuestionActionButton {
+  min-width: 146px;
+  padding: 11px 18px;
+  border-radius: 14px;
+  font-size: 14px;
 }
 
 .detailQuestionsLocked {
@@ -1018,6 +1475,7 @@
   border-radius: 16px;
   background: #eef5ff;
   color: var(--navy);
+  text-decoration: none;
   cursor: pointer;
   font-size: 15px;
   font-weight: 700;
@@ -1313,6 +1771,40 @@
 
 .downloadFlowCard {
   padding: 22px 24px;
+}
+
+.finalUploadCard {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(156, 176, 209, 0.72);
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.finalUploadText {
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.finalUploadActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.finalUploadActions > * {
+  flex: 0 0 auto;
+}
+
+.finalUploadStatus {
+  margin: 0;
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .downloadOptionCard {

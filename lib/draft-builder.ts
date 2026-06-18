@@ -1,12 +1,14 @@
 import type {
+  ParsedNoteEntry,
   ParsedProductCandidate,
   SpecialItemMapping
 } from "@/lib/product-candidate-parser";
+import type { TargetCandidate } from "@/lib/target-resolution";
+import { matchesTargetCandidate } from "@/lib/target-resolution";
+import { buildTargetCandidates } from "@/lib/target-resolution";
 import {
   extractRequestedLimitValue,
-  isNoopLimitChange,
-  matchesDelimitedTerm,
-  normalizeSearchText
+  isNoopLimitChange
 } from "@/lib/change-intent";
 
 export type DraftRequest = {
@@ -16,6 +18,7 @@ export type DraftRequest = {
   productName?: string;
   uploadedFiles?: string[];
   masterProducts?: ParsedProductCandidate[];
+  selectedTargetCandidate?: TargetCandidate | null;
 };
 
 export type LegacyDraftRequest = {
@@ -28,6 +31,7 @@ export type LegacyDraftRequest = {
   productName?: string;
   uploadedFiles?: string[] | null;
   masterProducts?: unknown[] | null;
+  selectedTargetCandidate?: unknown;
 };
 
 export type DraftSummary = {
@@ -39,11 +43,11 @@ export type DraftSummary = {
 };
 
 export type DraftWorkbookData = {
-  overview: Record<string, string>[];
-  ruleMaster: Record<string, string | number>[];
-  noteMaster: Record<string, string | number>[];
-  ruleNoteMap: Record<string, string | number>[];
-  changeLog: Record<string, string | number>[];
+  overview: Record<string, string | number | undefined>[];
+  ruleMaster: Record<string, string | number | undefined>[];
+  noteMaster: Record<string, string | number | undefined>[];
+  ruleNoteMap: Record<string, string | number | undefined>[];
+  changeLog: Record<string, string | number | undefined>[];
   summary: DraftSummary;
 };
 
@@ -84,7 +88,15 @@ export function normalizeDraftRequest(payload: unknown): DraftRequest {
           const candidate = item as Partial<ParsedProductCandidate>;
           return typeof candidate.productName === "string" && typeof candidate.sourceFileName === "string";
         })
-      : []
+      : [],
+    selectedTargetCandidate:
+      request.selectedTargetCandidate &&
+      typeof request.selectedTargetCandidate === "object" &&
+      !Array.isArray(request.selectedTargetCandidate) &&
+      typeof (request.selectedTargetCandidate as TargetCandidate).specialName === "string" &&
+      typeof (request.selectedTargetCandidate as TargetCandidate).insuranceCode === "string"
+        ? (request.selectedTargetCandidate as TargetCandidate)
+        : null
   };
 }
 
@@ -117,23 +129,6 @@ function buildInsuranceDisplay(
   product?: Pick<ParsedProductCandidate, "insuranceCode" | "insuranceCodeMapping"> | null
 ) {
   return product?.insuranceCodeMapping?.trim() || product?.insuranceCode?.trim() || "";
-}
-
-function matchesRequestedChangeTarget(
-  rawInput: string,
-  specialName: string,
-  insuranceCode: string
-) {
-  const normalizedInput = normalizeNoteTextValue(rawInput);
-  if (!normalizeSearchText(normalizedInput)) {
-    return false;
-  }
-
-  const candidateTerms = [specialName, insuranceCode]
-    .map((value) => normalizeNoteTextValue(value))
-    .filter(Boolean);
-
-  return candidateTerms.some((term) => matchesDelimitedTerm(normalizedInput, term));
 }
 
 function buildExpandedInsuranceItems(product: ParsedProductCandidate, fallbackName: string) {
@@ -201,7 +196,10 @@ function buildRuleMeasureFields(
   shouldApplyRequestedLimit: boolean
 ) {
   const limitValue = currentLimitValue || requestedLimitValue || "1000";
-  const nextLimitValue = shouldApplyRequestedLimit ? requestedLimitValue ?? limitValue : limitValue;
+  const nextLimitValue =
+    shouldApplyRequestedLimit && requestedLimitValue && requestedLimitValue !== limitValue
+      ? requestedLimitValue
+      : "";
   const fields =
     mode === "change"
       ? {
@@ -216,6 +214,20 @@ function buildRuleMeasureFields(
         };
 
   return fields;
+}
+
+function isTargetRow(
+  row: Record<string, string | number>,
+  targetCandidate: TargetCandidate | null | undefined
+) {
+  if (targetCandidate) {
+    return matchesTargetCandidate(row as Pick<
+      Record<string, string | number>,
+      "상품명" | "특약명" | "상품코드" | "보험코드"
+    >, targetCandidate);
+  }
+
+  return false;
 }
 
 function buildRuleMeasureSummary(
@@ -695,15 +707,21 @@ export function buildDraftWorkbookData(
     ? buildNoteRows(standardizedRows, masterProducts, workbookProductName)
     : null;
   const requestedLimitValue = extractRequestedLimitValue(request.rawInput);
+  const autoTargetCandidates = buildTargetCandidates(request.rawInput, masterProducts);
+  const resolvedTargetCandidate =
+    request.selectedTargetCandidate ??
+    (autoTargetCandidates.length > 0 ? autoTargetCandidates[0] : null);
   const targetRows = standardizedRows.filter((row) =>
-    matchesRequestedChangeTarget(
-      request.rawInput,
-      String(row.특약명 ?? ""),
-      String(row.보험코드 ?? "")
-    )
-  );
-  const targetLabel = targetRows[0]?.특약명?.trim() || "소액암진단";
-  const targetLimitValue = targetRows[0]?.가입한도?.trim() || baseLimitValue;
+    isTargetRow(row, resolvedTargetCandidate)
+  ) as Array<Record<string, string | number> & { 가입한도?: string }>;
+  const targetLabel =
+    resolvedTargetCandidate?.specialName?.trim() ||
+    String(targetRows[0]?.특약명 ?? "").trim() ||
+    "소액암진단";
+  const targetLimitValue =
+    String(targetRows[0]?.가입한도 ?? "").trim() ||
+    resolvedTargetCandidate?.limitValue?.trim() ||
+    baseLimitValue;
   const limitSummary = buildRuleMeasureSummary(renderMode, targetLimitValue, request.rawInput);
 
   const summary: DraftSummary = {
@@ -742,32 +760,33 @@ export function buildDraftWorkbookData(
         ],
     summary,
     ruleMaster: hasUploadedFiles
-      ? standardizedRows.map((row, index) => ({
-          상품명: row.상품명,
-          특약명: row.특약명,
-          상품코드: row.상품코드,
-          보험코드: row.보험코드,
-          판매일자: row.판매일자 || saleDate,
-          가입한도: row.가입한도 || "",
-          비고: row.비고 || "",
-          "Rule ID": `R-0${index + 1}`,
-          상태: "표준화 완료",
-          ...buildRuleMeasureFields(
-            renderMode,
-            row.가입한도 || baseLimitValue,
-            requestedLimitValue,
-            matchesRequestedChangeTarget(
-              request.rawInput,
-              String(row.특약명 ?? ""),
-              String(row.보험코드 ?? "")
-            )
-          ),
-          인별합산: 3000,
-          주석ID: noteArtifacts?.noteIdsByRuleIndex.get(index)?.join(",") || "",
-          출처위치: row.원본파일명,
-          검토메모: row.검토메모,
-          초안상태: "초안"
-        }))
+      ? standardizedRows.map((row, index) => {
+          const rowRecord = row as Record<string, string | number | undefined>;
+          const rowWithLimit = rowRecord as { 가입한도?: string };
+
+          return {
+            상품명: rowRecord.상품명 ?? "",
+            특약명: rowRecord.특약명 ?? "",
+            상품코드: rowRecord.상품코드 ?? "",
+            보험코드: rowRecord.보험코드 ?? "",
+            판매일자: String(rowRecord.판매일자 ?? saleDate),
+            가입한도: rowWithLimit.가입한도 || "",
+            비고: String(rowRecord.비고 ?? ""),
+            "Rule ID": `R-0${index + 1}`,
+            상태: "표준화 완료",
+            ...buildRuleMeasureFields(
+              renderMode,
+              rowWithLimit.가입한도 || baseLimitValue,
+              requestedLimitValue,
+              isTargetRow(row, resolvedTargetCandidate)
+            ),
+            인별합산: 3000,
+            주석ID: noteArtifacts?.noteIdsByRuleIndex.get(index)?.join(",") || "",
+            출처위치: String(rowRecord.원본파일명 ?? ""),
+            검토메모: String(rowRecord.검토메모 ?? ""),
+            초안상태: "초안"
+          };
+        })
       : [
       {
         상품명: workbookProductName,
@@ -845,23 +864,27 @@ export function buildDraftWorkbookData(
           }
       ],
     changeLog: hasUploadedFiles
-      ? standardizedRows.map((row, index) => ({
-          상품명: row.상품명,
-          특약명: row.특약명,
-          상품코드: row.상품코드,
-          보험코드: row.보험코드,
-          가입한도: row.가입한도 || "",
-          비고: row.비고 || "특약 단위 변경 이력",
-          "Change ID": `C-0${index + 1}`,
-          "Rule ID": `R-0${index + 1}`,
-          상태변경: "파일별 표준화 -> 특약별 머지",
-          현행값: row.원본파일명,
-          변경값: row.특약명,
-          "Note ID": noteArtifacts?.noteIdsByRuleIndex.get(index)?.join(",") || "",
-          사유: row.검토메모,
-          적용일: "검토 필요",
-          변경메모: "특약 단위 변경 이력"
-        }))
+      ? standardizedRows.map((row, index) => {
+          const rowRecord = row as Record<string, string | number | undefined>;
+
+          return {
+            상품명: String(rowRecord.상품명 ?? ""),
+            특약명: String(rowRecord.특약명 ?? ""),
+            상품코드: String(rowRecord.상품코드 ?? ""),
+            보험코드: String(rowRecord.보험코드 ?? ""),
+            가입한도: String(rowRecord.가입한도 ?? ""),
+            비고: String(rowRecord.비고 ?? "특약 단위 변경 이력"),
+            "Change ID": `C-0${index + 1}`,
+            "Rule ID": `R-0${index + 1}`,
+            상태변경: "파일별 표준화 -> 특약별 머지",
+            현행값: String(rowRecord.원본파일명 ?? ""),
+            변경값: String(rowRecord.특약명 ?? ""),
+            "Note ID": noteArtifacts?.noteIdsByRuleIndex.get(index)?.join(",") || "",
+            사유: String(rowRecord.검토메모 ?? ""),
+            적용일: "검토 필요",
+            변경메모: "특약 단위 변경 이력"
+          };
+        })
       : [
       {
         상품명: workbookProductName,

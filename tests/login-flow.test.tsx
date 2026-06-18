@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import HomePage from "@/components/home-page";
 import LoginPage from "@/components/login-page";
 import PreviewGate from "@/components/preview-gate";
-import { AUTH_SESSION_KEY } from "@/lib/session";
+import { AUTH_SESSION_KEY, readAuthSession, writeAuthSession } from "@/lib/session";
 
 const routerReplaceMock = vi.hoisted(() => vi.fn());
 
@@ -58,5 +58,28 @@ describe("Login flow", () => {
     render(<PreviewGate />);
 
     await waitFor(() => expect(routerReplaceMock).toHaveBeenCalledWith("/"));
+  });
+
+  it("falls back to window.name when localStorage writes are blocked", () => {
+    const session = {
+      employeeId: "12345",
+      department: "신계약기획P",
+      name: "홍길동",
+      loggedInAt: new Date().toISOString()
+    };
+    const originalName = window.name;
+    const setItemSpy = vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+
+    try {
+      writeAuthSession(session);
+
+      expect(window.name).toContain(AUTH_SESSION_KEY);
+      expect(readAuthSession()).toEqual(session);
+    } finally {
+      setItemSpy.mockRestore();
+      window.name = originalName;
+    }
   });
 });

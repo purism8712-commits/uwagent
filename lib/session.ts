@@ -12,8 +12,62 @@ export type AuthSession = {
   loggedInAt: string;
 };
 
+type WindowNameSessionState = {
+  [AUTH_SESSION_KEY]?: string;
+};
+
 function canUseStorage() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+}
+
+function canUseWindowName() {
+  return typeof window !== "undefined" && typeof window.name === "string";
+}
+
+function parseWindowNameSessionState(): WindowNameSessionState {
+  if (!canUseWindowName()) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(window.name) as unknown;
+    if (parsed && typeof parsed === "object") {
+      return parsed as WindowNameSessionState;
+    }
+  } catch {
+    // fall through to empty state
+  }
+
+  return {};
+}
+
+function readWindowNameSession(): string | null {
+  const state = parseWindowNameSessionState();
+  const raw = state[AUTH_SESSION_KEY];
+  return typeof raw === "string" && raw.trim() ? raw : null;
+}
+
+function writeWindowNameSession(raw: string) {
+  if (!canUseWindowName()) {
+    return;
+  }
+
+  const state = parseWindowNameSessionState();
+  state[AUTH_SESSION_KEY] = raw;
+  window.name = JSON.stringify(state);
+}
+
+function clearWindowNameSession() {
+  if (!canUseWindowName()) {
+    return;
+  }
+
+  const state = parseWindowNameSessionState();
+  if (AUTH_SESSION_KEY in state) {
+    delete state[AUTH_SESSION_KEY];
+  }
+
+  window.name = JSON.stringify(state);
 }
 
 export function isLoginAllowedDepartment(department: string) {
@@ -35,16 +89,54 @@ export function canUseAgentScope(department: string, scope: AgentScope) {
 
 export function readAuthSession(): AuthSession | null {
   if (!canUseStorage()) {
-    return null;
+    const fallbackRaw = readWindowNameSession();
+    if (!fallbackRaw) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(fallbackRaw) as Partial<AuthSession>;
+      if (
+        typeof parsed.employeeId !== "string" ||
+        typeof parsed.department !== "string" ||
+        typeof parsed.name !== "string" ||
+        typeof parsed.loggedInAt !== "string"
+      ) {
+        return null;
+      }
+
+      return parsed as AuthSession;
+    } catch {
+      return null;
+    }
   }
 
   const raw = window.localStorage.getItem(AUTH_SESSION_KEY);
-  if (!raw) {
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as Partial<AuthSession>;
+      if (
+        typeof parsed.employeeId !== "string" ||
+        typeof parsed.department !== "string" ||
+        typeof parsed.name !== "string" ||
+        typeof parsed.loggedInAt !== "string"
+      ) {
+        return null;
+      }
+
+      return parsed as AuthSession;
+    } catch {
+      return null;
+    }
+  }
+
+  const fallbackRaw = readWindowNameSession();
+  if (!fallbackRaw) {
     return null;
   }
 
   try {
-    const parsed = JSON.parse(raw) as Partial<AuthSession>;
+    const parsed = JSON.parse(fallbackRaw) as Partial<AuthSession>;
     if (
       typeof parsed.employeeId !== "string" ||
       typeof parsed.department !== "string" ||
@@ -61,17 +153,28 @@ export function readAuthSession(): AuthSession | null {
 }
 
 export function writeAuthSession(session: AuthSession) {
-  if (!canUseStorage()) {
-    return;
+  const serialized = JSON.stringify(session);
+
+  if (canUseStorage()) {
+    try {
+      window.localStorage.setItem(AUTH_SESSION_KEY, serialized);
+      return;
+    } catch {
+      // fall back to window.name
+    }
   }
 
-  window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+  writeWindowNameSession(serialized);
 }
 
 export function clearAuthSession() {
-  if (!canUseStorage()) {
-    return;
+  if (canUseStorage()) {
+    try {
+      window.localStorage.removeItem(AUTH_SESSION_KEY);
+    } catch {
+      // fall back to clearing window.name
+    }
   }
 
-  window.localStorage.removeItem(AUTH_SESSION_KEY);
+  clearWindowNameSession();
 }

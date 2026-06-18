@@ -7,12 +7,13 @@ export async function POST(request: Request) {
   const normalizedRequest = normalizeDraftRequest(payload);
   const storedSnapshot = await masterWorkbookStore.load();
   const requestWithMasterProducts =
-    normalizedRequest.masterProducts.length > 0 || !storedSnapshot?.request.masterProducts?.length
+    (normalizedRequest.masterProducts?.length ?? 0) > 0 ||
+    !storedSnapshot?.request.masterProducts?.length
       ? normalizedRequest
       : {
           ...normalizedRequest,
           uploadedFiles:
-            normalizedRequest.uploadedFiles.length > 0
+            (normalizedRequest.uploadedFiles?.length ?? 0) > 0
               ? normalizedRequest.uploadedFiles
               : storedSnapshot.uploadedFiles,
           masterProducts: storedSnapshot.request.masterProducts

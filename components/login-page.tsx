@@ -22,7 +22,7 @@ export default function LoginPage() {
   useEffect(() => {
     const session = readAuthSession();
     if (session) {
-      router.replace("/preview");
+      router.replace("/agent-tabs");
       return;
     }
 
@@ -42,7 +42,7 @@ export default function LoginPage() {
       loggedInAt: new Date().toISOString()
     });
 
-    router.replace("/preview");
+    router.replace("/agent-tabs");
   }
 
   return (
