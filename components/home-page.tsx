@@ -101,9 +101,17 @@ function clearStoredMasterWorkbookState() {
 
 type HomePageProps = {
   userSession?: AuthSession | null;
+  showHero?: boolean;
+  onOpenSupportAgent?: () => void;
+  onOpenReviewAgent?: () => void;
 };
 
-export function HomePageContent({ userSession }: HomePageProps) {
+export function HomePageContent({
+  userSession,
+  showHero = true,
+  onOpenSupportAgent,
+  onOpenReviewAgent
+}: HomePageProps) {
   const [step, setStep] = useState<Step>("input");
   const [rawInput, setRawInput] = useState("");
   const [masterFiles, setMasterFiles] = useState<File[]>([]);
@@ -557,13 +565,15 @@ export function HomePageContent({ userSession }: HomePageProps) {
 
   return (
     <>
-      <HeroSection
-        userSession={userSession}
-        onLogout={() => {
-          clearAuthSession();
-          window.location.assign("/");
-        }}
-      />
+      {showHero ? (
+        <HeroSection
+          userSession={userSession}
+          onLogout={() => {
+            clearAuthSession();
+            window.location.assign("/");
+          }}
+        />
+      ) : null}
       <StepProgressBar step={step} isDraftReady={Boolean(finalSummary)} />
       <div className={styles.stepFlowStack}>
         <InputStage
@@ -653,6 +663,8 @@ export function HomePageContent({ userSession }: HomePageProps) {
             finalUploadStatus={finalUploadStatus}
             supportAgentUrl={SUPPORT_AGENT_URL}
             reviewAgentUrl={REVIEW_AGENT_URL}
+            onOpenSupportAgent={onOpenSupportAgent}
+            onOpenReviewAgent={onOpenReviewAgent}
           />
         ) : null}
       </div>

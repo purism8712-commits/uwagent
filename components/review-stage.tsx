@@ -27,6 +27,8 @@ type ReviewStageProps = {
   finalUploadStatus: string;
   supportAgentUrl: string;
   reviewAgentUrl: string;
+  onOpenSupportAgent?: () => void;
+  onOpenReviewAgent?: () => void;
   onAnswerChange: (id: string, value: string) => void;
   onProductNameChange: (value: string) => void;
   onProductSelect: (value: string) => void;
@@ -57,6 +59,8 @@ export function ReviewStage({
   finalUploadStatus,
   supportAgentUrl,
   reviewAgentUrl,
+  onOpenSupportAgent,
+  onOpenReviewAgent,
   onAnswerChange,
   onProductNameChange,
   onProductSelect,
@@ -169,7 +173,25 @@ export function ReviewStage({
     ? finalSummary.afterValue === "변경 없음" || beforeValueLabel === afterValueLabel
       ? `답변 ${finalSummary.appliedAnswers.length}개를 반영했지만 ${finalSummary.target} 단일건의 현재 기준값과 변경값이 같아 변경 없음으로 확인했고, 남은 검토 항목은 ${finalSummary.pendingNotes.length}건입니다.`
       : `답변 ${finalSummary.appliedAnswers.length}개를 반영해 ${finalSummary.target} 단일건 한도를 ${beforeValueLabel}에서 ${afterValueLabel}으로 정리했고, 남은 검토 항목은 ${finalSummary.pendingNotes.length}건입니다.`
-    : "";
+      : "";
+
+  function handleSupportAgentOpen() {
+    if (onOpenSupportAgent) {
+      onOpenSupportAgent();
+      return;
+    }
+
+    window.open(supportAgentUrl, "_blank", "noopener,noreferrer");
+  }
+
+  function handleReviewAgentOpen() {
+    if (onOpenReviewAgent) {
+      onOpenReviewAgent();
+      return;
+    }
+
+    window.open(reviewAgentUrl, "_blank", "noopener,noreferrer");
+  }
 
   return (
     <section className={styles.stepFlowStack}>
@@ -592,22 +614,20 @@ export function ReviewStage({
                 >
                   최종 업로드
                 </button>
-                <a
+                <button
                   className={styles.secondaryButton}
-                  href={supportAgentUrl}
-                  target="_blank"
-                  rel="noreferrer"
+                  type="button"
+                  onClick={handleSupportAgentOpen}
                 >
                   지원AGENT 연결
-                </a>
-                <a
+                </button>
+                <button
                   className={styles.secondaryButton}
-                  href={reviewAgentUrl}
-                  target="_blank"
-                  rel="noreferrer"
+                  type="button"
+                  onClick={handleReviewAgentOpen}
                 >
                   심사AGENT 연결
-                </a>
+                </button>
               </div>
               {finalUploadStatus ? (
                 <p className={styles.finalUploadStatus}>{finalUploadStatus}</p>
