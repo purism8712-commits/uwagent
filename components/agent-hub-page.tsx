@@ -7,6 +7,7 @@ import styles from "./components.module.css";
 import { canUseAgentScope } from "@/lib/session";
 import type { AuthSession } from "@/lib/session";
 import type { InquiryEvidence } from "@/lib/pre-inquiry";
+import { buildReviewDraftFromFile, type ReviewDraftFaq, type ReviewWorkbookDraft } from "@/lib/review-agent-draft";
 
 type AgentTab = "기획" | "지원" | "심사" | "사전문의";
 
@@ -512,7 +513,10 @@ function SupportAgentPreview() {
 }
 
 function ReviewAgentPreview() {
+  const [uploadedWorkbookFile, setUploadedWorkbookFile] = useState<File | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState("");
+  const [uploadedWorkbookDraft, setUploadedWorkbookDraft] = useState<ReviewWorkbookDraft | null>(null);
+  const [uploadStatusText, setUploadStatusText] = useState("필수 시트 상태를 아직 확인하지 않았습니다.");
   const [draftCreated, setDraftCreated] = useState(false);
   const [pptGenerated, setPptGenerated] = useState(false);
   const [approved, setApproved] = useState(false);
@@ -522,7 +526,7 @@ function ReviewAgentPreview() {
   const [cautions, setCautions] = useState("");
   const [effectiveDate, setEffectiveDate] = useState("");
   const [owner, setOwner] = useState("");
-  const [faqs, setFaqs] = useState([
+  const [faqs, setFaqs] = useState<ReviewDraftFaq[]>([
     { id: "faq-1", question: "", answer: "" },
     { id: "faq-2", question: "", answer: "" },
     { id: "faq-3", question: "", answer: "" }
@@ -540,45 +544,69 @@ function ReviewAgentPreview() {
           ? 3
           : 4;
 
-  const handleReviewUpload = (event: ChangeEvent<HTMLInputElement>) => {
-    const fileName = event.target.files?.[0]?.name ?? "";
+  const handleReviewUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    const fileName = file?.name ?? "";
+    setUploadedWorkbookFile(file ?? null);
     setUploadedFileName(fileName);
     setDraftCreated(false);
     setPptGenerated(false);
     setApproved(false);
-  };
+    setUploadedWorkbookDraft(null);
 
-  const handleCreateReviewDraft = () => {
-    if (!hasUploadedFile) {
+    if (!file) {
+      setUploadStatusText("필수 시트 상태를 아직 확인하지 않았습니다.");
       return;
     }
 
-    setNoticeTitle("이번 변경은 워크북에 등록된 변경 이력과 주석을 바탕으로 정리");
-    setOneLineSummary("해당 상품 인수기준 변경안을 안내드립니다. 하단 참고 바랍니다.");
-    setMajorChanges("가입한도 변경사항 확인\n연결 주석 및 예외조건 검토 필요\n시스템 반영정보 확인 완료");
-    setCautions("현장 배포 전 승인 필요\n불확실 항목은 담당자 확인 후 반영");
-    setEffectiveDate("");
-    setOwner("신계약심사P");
-    setFaqs([
-      {
-        id: "faq-1",
-        question: "이번 인수기준 변경의 핵심은 무엇인가요?",
-        answer: "통합 마스터의 변경 이력과 연결 주석을 기준으로 현장 안내가 필요한 항목을 정리합니다."
-      },
-      {
-        id: "faq-2",
-        question: "현장 배포 전 추가 확인이 필요한 항목은 무엇인가요?",
-        answer: "적용시점, 담당자, 예외조건 반영 여부는 최종 승인 전 확인이 필요합니다."
-      },
-      {
-        id: "faq-3",
-        question: "",
-        answer: ""
-      }
-    ]);
-    setDraftCreated(true);
-    setPptGenerated(false);
-    setApproved(false);
+    try {
+      const nextDraft = await buildReviewDraftFromFile(file);
+      setUploadedWorkbookDraft(nextDraft);
+      setUploadStatusText(nextDraft.uploadStatusText);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "알 수 없는 오류";
+      setUploadStatusText(`엑셀을 읽는 중 오류가 발생했습니다. ${message}`);
+    }
+  };
+
+  const handleCreateReviewDraft = () => {
+    if (!hasUploadedFile || !uploadedWorkbookFile) {
+      return;
+    }
+
+    const applyDraft = (nextDraft: ReviewWorkbookDraft) => {
+      setUploadedWorkbookDraft(nextDraft);
+      setUploadStatusText(nextDraft.uploadStatusText);
+      setNoticeTitle(nextDraft.noticeTitle);
+      setOneLineSummary(nextDraft.oneLineSummary);
+      setMajorChanges(nextDraft.majorChanges);
+      setCautions(nextDraft.cautions);
+      setEffectiveDate(nextDraft.effectiveDate);
+      setOwner(nextDraft.owner);
+      setFaqs(nextDraft.faqs);
+      setDraftCreated(true);
+      setPptGenerated(false);
+      setApproved(false);
+    };
+
+    if (uploadedWorkbookDraft?.hasRequiredSheets) {
+      applyDraft(uploadedWorkbookDraft);
+      return;
+    }
+
+    buildReviewDraftFromFile(uploadedWorkbookFile)
+      .then((nextDraft) => {
+        if (!nextDraft.hasRequiredSheets) {
+          setUploadStatusText(nextDraft.uploadStatusText);
+          return;
+        }
+
+        applyDraft(nextDraft);
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : "알 수 없는 오류";
+        setUploadStatusText(`엑셀을 읽는 중 오류가 발생했습니다. ${message}`);
+      });
   };
 
   const handleFaqChange = (id: string, field: "question" | "answer", value: string) => {
@@ -674,7 +702,7 @@ function ReviewAgentPreview() {
         </div>
 
         <p className={styles.agentPreviewHint}>
-          {hasUploadedFile ? "시트 6개 인식 / 필수 시트 확인 완료 / 초안 생성 가능" : "필수 시트 상태를 아직 확인하지 않았습니다."}
+          {hasUploadedFile ? uploadStatusText : "필수 시트 상태를 아직 확인하지 않았습니다."}
         </p>
         <button
           className={styles.reviewAgentPrimaryButton}
