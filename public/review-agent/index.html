@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>신계약 공통 에이전트</title>
+    <style>
+      :root {
+        --navy: #0c2268;
+        --navy-2: #14388f;
+        --blue: #1959ff;
+        --purple: #6a38ff;
+        --text: #1f2430;
+        --subtle: #5b6475;
+        --line: #e8ecf5;
+        --bg: #f6f8fd;
+        --card: #ffffff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+        background: #ffffff;
+        color: var(--text);
+      }
+
+      .page {
+        max-width: 1240px;
+        margin: 18px auto 32px;
+        padding: 0 18px 24px;
+        background: transparent;
+        border-radius: 0;
+        overflow: visible;
+        box-shadow: none;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(300px, 0.82fr);
+        justify-content: space-between;
+        gap: 18px 24px;
+        padding: 18px 22px 16px;
+        background: #ffffff;
+        color: var(--text);
+        border: 1px solid var(--line);
+        border-radius: 26px;
+        box-shadow: 0 14px 36px rgba(16, 24, 40, 0.06);
+      }
+
+      .hero-main {
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+        min-width: 0;
+      }
+
+      .hero-icon {
+        width: 54px;
+        height: 54px;
+        border-radius: 16px;
+        display: inline-grid;
+        place-items: center;
+        background: linear-gradient(180deg, #7a4dff 0%, #5a37f0 100%);
+        color: #fff;
+        font-size: 24px;
+        box-shadow: 0 10px 22px rgba(106, 72, 255, 0.18);
+        flex: none;
+      }
+
+      .hero-copy {
+        display: grid;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .hero h1 {
+        margin: 0;
+        font-size: 22px;
+        line-height: 1.1;
+        letter-spacing: -0.04em;
+      }
+
+      .hero p {
+        margin: 0;
+        max-width: 860px;
+        font-size: 11px;
+        color: var(--subtle);
+        line-height: 1.4;
+      }
+
+      .hero-metrics {
+        display: grid;
+        gap: 10px;
+        align-content: start;
+      }
+
+      .metric {
+        min-width: 180px;
+        padding: 10px 12px;
+        border-radius: 16px;
+        background: #f7fbff;
+        border: 1px solid var(--line);
+      }
+
+      .metric-label {
+        font-size: 11px;
+        color: var(--subtle);
+        margin-bottom: 6px;
+      }
+
+      .metric-value {
+        font-size: 14px;
+        font-weight: 800;
+        color: var(--navy);
+      }
+
+      .stepbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 18px;
+        margin: 14px 18px 0;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: #fff;
+        flex-wrap: nowrap;
+        overflow: auto;
+      }
+
+      .step {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #20305b;
+        font-size: 13px;
+        font-weight: 700;
+        white-space: nowrap;
+        min-width: max-content;
+      }
+
+      .step-number {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--blue);
+        color: #fff;
+        font-size: 15px;
+      }
+
+      .main {
+        display: grid;
+        grid-template-columns: 1.05fr 0.95fr;
+        gap: 22px;
+        padding: 14px 18px 24px;
+        background: transparent;
+      }
+
+      .panel {
+        border-radius: 28px;
+        padding: 20px;
+        border: 1px solid var(--line);
+      }
+
+      .support-panel {
+        background: linear-gradient(180deg, #eff5ff 0%, #f7fbff 100%);
+        border-color: #dce7ff;
+      }
+
+      .review-panel {
+        background: linear-gradient(180deg, #f8f5ff 0%, #fbfbff 100%);
+        border-color: #e5defa;
+      }
+
+      .panel-header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 14px;
+      }
+
+      .panel-icon {
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 22px;
+      }
+
+      .support-panel .panel-icon { background: var(--blue); }
+      .review-panel .panel-icon { background: var(--purple); }
+
+      .panel-title {
+        font-size: 22px;
+        font-weight: 800;
+      }
+
+      .tag {
+        margin-left: auto;
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .support-panel .tag {
+        background: #dfeaff;
+        color: #2661d7;
+      }
+
+      .review-panel .tag {
+        background: #ede4ff;
+        color: #7440ff;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 16px;
+        margin-bottom: 14px;
+      }
+
+      .review-panel .card {
+        border-color: #ece6fb;
+      }
+
+      .card-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+
+      .card-title {
+        font-size: 16px;
+        font-weight: 800;
+        color: #2a3150;
+      }
+
+      .status-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .badge {
+        padding: 7px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .badge-blue {
+        background: #eef3ff;
+        color: #2d5fd2;
+      }
+
+      .badge-green {
+        background: #f0fff3;
+        color: #258344;
+      }
+
+      .badge-yellow {
+        background: #fff4d6;
+        color: #8a6116;
+      }
+
+      .upload-grid {
+        display: grid;
+        grid-template-columns: 1fr 112px;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .upload-box {
+        min-height: 74px;
+        padding: 12px 14px;
+        border: 1px solid #d9dfea;
+        border-radius: 14px;
+        background: #fafcff;
+      }
+
+      .filename {
+        font-size: 14px;
+        color: #2f3751;
+        margin-bottom: 4px;
+      }
+
+      .helper {
+        font-size: 12px;
+        color: #697389;
+        line-height: 1.45;
+      }
+
+      button {
+        cursor: pointer;
+        border: none;
+        border-radius: 14px;
+        font-family: inherit;
+      }
+
+      .button-dark {
+        height: 46px;
+        background: #5a5f67;
+        color: #fff;
+        font-weight: 700;
+      }
+
+      .button-purple {
+        width: 100%;
+        height: 52px;
+        background: var(--purple);
+        color: #fff;
+        font-size: 17px;
+        font-weight: 800;
+      }
+
+      .button-disabled {
+        opacity: 0.48;
+        cursor: not-allowed;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 148px;
+        border: 1px solid #dcd6ef;
+        border-radius: 14px;
+        padding: 14px;
+        resize: none;
+        overflow: hidden;
+        font: inherit;
+        line-height: 1.58;
+        color: #2e3447;
+        background: #fff;
+      }
+
+      .text-input {
+        width: 100%;
+        height: 46px;
+        border: 1px solid #dcd6ef;
+        border-radius: 14px;
+        padding: 0 14px;
+        font: inherit;
+        color: #2e3447;
+        background: #fff;
+      }
+
+      .text-input.field-warn,
+      textarea.field-warn {
+        border-color: #d7bb6c;
+        background: #fffdf4;
+      }
+
+      .text-input.field-over,
+      textarea.field-over {
+        border-color: #d66a6a;
+        background: #fff6f6;
+      }
+
+      .field-label {
+        display: block;
+        margin: 14px 0 8px;
+        font-size: 13px;
+        font-weight: 800;
+        color: #334155;
+      }
+
+      .two-col {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .field-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .field-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .field-meta .field-label {
+        margin: 0;
+      }
+
+      .field-meter {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 8px;
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      .field-meter .counter {
+        font-weight: 800;
+        color: #6f7590;
+      }
+
+      .field-meter .meter-note {
+        color: #8f96ad;
+      }
+
+      .field-meter.warn .counter {
+        color: #9d6c0a;
+      }
+
+      .field-meter.over .counter {
+        color: #c43f3f;
+      }
+
+      #boardSummary,
+      #boardHighlights,
+      #boardCautions {
+        min-height: 108px;
+      }
+
+      #boardSummary,
+      #boardHighlights,
+      #boardCautions,
+      .faq-answer {
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      #faqList {
+        display: grid;
+        gap: 12px;
+      }
+
+      .faq-controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin: 12px 0 14px;
+      }
+
+      .faq-helper {
+        color: #6a7292;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .faq-add-button,
+      .faq-remove-button {
+        border: 1px solid #d8cdfa;
+        background: #ffffff;
+        color: #5c45db;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 800;
+        padding: 8px 12px;
+        cursor: pointer;
+      }
+
+      .faq-add-button:hover,
+      .faq-remove-button:hover:not(:disabled) {
+        background: #f5f1ff;
+      }
+
+      .faq-remove-button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      .faq-card {
+        border: 1px solid #ebe5fb;
+        border-radius: 16px;
+        padding: 14px;
+        background: #fcfbff;
+      }
+
+      .faq-card textarea {
+        min-height: 96px;
+      }
+
+      .faq-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+
+      .faq-title {
+        font-size: 14px;
+        font-weight: 800;
+        color: #40386b;
+      }
+
+      .footer-tags {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+      }
+
+      .asset-downloads {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .asset-link {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid #e5defa;
+        background: #fdfbff;
+        color: #3e3470;
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .asset-link span:last-child {
+        color: #7440ff;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .status-line {
+        margin-top: 10px;
+        font-size: 13px;
+        color: var(--subtle);
+      }
+
+      .alert {
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: #fff9ea;
+        border: 1px solid #f3e1a5;
+        color: #785d11;
+        font-size: 13px;
+        line-height: 1.5;
+        margin-bottom: 14px;
+      }
+
+      .meta-banner {
+        padding: 14px 16px;
+        border-radius: 16px;
+        border: 1px solid #dfe5f5;
+        background: #ffffff;
+        margin-bottom: 14px;
+      }
+
+      .meta-banner.ai {
+        background: #f4f8ff;
+        border-color: #d4e3ff;
+      }
+
+      .meta-banner.fallback {
+        background: #fff8ee;
+        border-color: #f2ddaf;
+      }
+
+      .meta-banner.missing {
+        background: #fff6f6;
+        border-color: #f1d2d2;
+      }
+
+      .meta-label {
+        display: inline-flex;
+        align-items: center;
+        padding: 7px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 800;
+        margin-bottom: 8px;
+      }
+
+      .meta-banner.ai .meta-label {
+        background: #dfeaff;
+        color: #275ed6;
+      }
+
+      .meta-banner.fallback .meta-label {
+        background: #fff0cc;
+        color: #9a6300;
+      }
+
+      .meta-banner.missing .meta-label {
+        background: #ffe0e0;
+        color: #b24a4a;
+      }
+
+      .meta-desc {
+        font-size: 13px;
+        line-height: 1.55;
+        color: #4d5770;
+      }
+
+      .left-placeholder {
+        min-height: 650px;
+      }
+
+      .left-card {
+        background: #fff;
+        border: 1px solid #d9e3ff;
+        border-radius: 20px;
+        padding: 16px;
+        margin-bottom: 14px;
+      }
+
+      .list-row {
+        display: grid;
+        grid-template-columns: 1fr 140px;
+        gap: 12px;
+        padding: 12px 0;
+        border-top: 1px solid #eef3fb;
+      }
+
+      .list-row:first-child { border-top: none; }
+
+      .approval {
+        padding: 0 24px 24px;
+        background: #fbfcff;
+      }
+
+      .approval-card {
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        gap: 20px;
+        align-items: center;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 16px 18px;
+      }
+
+      .approval-button {
+        justify-self: end;
+        background: var(--blue);
+        color: #fff;
+        padding: 15px 28px;
+        font-weight: 800;
+      }
+
+      @media (max-width: 1200px) {
+        .hero,
+        .main,
+        .approval-card {
+          grid-template-columns: 1fr;
+          display: grid;
+        }
+
+        .hero-metrics {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .stepbar {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 12px;
+        }
+
+        .two-col {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* Local combined tab only exposes the review workflow. */
+      .support-panel {
+        display: none !important;
+      }
+
+      .main {
+        grid-template-columns: 1fr !important;
+      }
+
+      .review-panel {
+        grid-column: 1 / -1;
+      }
+    </style>
+    <script type="module" crossorigin src="/review-agent/assets/index-BrBvGB8u.js"></script>
+  </head>
+  <body>
+    <div class="page">
+      <div class="hero">
+        <div class="hero-main">
+          <div class="hero-icon" aria-hidden="true">◉</div>
+          <div class="hero-copy">
+            <h1>신계약 공통 에이전트</h1>
+            <p>변경된 엑셀 표, 자연어 입력을 공통 양식 초안으로 정리하고 검토메모와 확인 질문까지 이어서 처리하는 내부 업무용 데스크톱 에이전트입니다.</p>
+          </div>
+        </div>
+        <div class="hero-metrics">
+          <div class="metric">
+            <div class="metric-label">지원 입력</div>
+            <div class="metric-value">엑셀 · 표 · 자연어</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">출력 흐름</div>
+            <div class="metric-value">초안 생성 → 검토 질문</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">상태 기준</div>
+            <div class="metric-value">초안 / 검토 필요</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stepbar">
+        <div class="step"><span class="step-number">1</span>변경내용 입력</div>
+        <div class="step"><span class="step-number">2</span>검토메모 및 질문 확인</div>
+      </div>
+
+      <div class="main">
+        <section class="panel support-panel left-placeholder">
+          <div class="panel-header">
+            <div class="panel-icon">📄</div>
+            <div class="panel-title">지원 Agent</div>
+            <div class="tag">시스템 반영정보 도출</div>
+          </div>
+
+          <div class="left-card">
+            <div class="helper" style="margin-bottom:12px;">상품별로 RD, 기계약합산, 전산심사 완료 여부를 체크합니다.</div>
+            <div class="list-row">
+              <div><strong>실버보험</strong><div class="helper">RD / 기계약합산 / 전산심사</div></div>
+              <div class="helper">완료 / 진행중 / 미완료</div>
+            </div>
+            <div class="list-row">
+              <div><strong>건강하고 튼튼하게</strong><div class="helper">RD / 기계약합산 / 전산심사</div></div>
+              <div class="helper">완료 / 완료 / 진행중</div>
+            </div>
+          </div>
+
+          <div class="left-card">
+            <div class="card-title" style="margin-bottom:10px;">시스템 반영정보</div>
+            <div class="helper">상품코드 + 보험코드 기준으로 시스템 반영정보를 도출합니다.</div>
+          </div>
+        </section>
+
+        <section class="panel review-panel">
+          <div class="panel-header">
+            <div class="panel-icon">📣</div>
+            <div class="panel-title">심사 Agent</div>
+            <div class="tag">현장공지자료</div>
+          </div>
+
+          <div id="draftAlert" class="alert hidden"></div>
+
+          <div id="draftMetaCard" class="meta-banner hidden">
+            <div id="draftSourceBadge" class="meta-label">초안 생성 대기</div>
+            <div id="draftSourceDescription" class="meta-desc">엑셀 업로드 후 초안을 생성하면 생성 방식과 기준 파일이 여기에 표시됩니다.</div>
+          </div>
+
+          <div class="card">
+            <div class="card-row">
+              <div class="card-title">엑셀 업로드</div>
+              <div class="status-badges">
+                <span class="badge badge-blue">지원 Agent 전달 시 자동 연동</span>
+                <span id="uploadStatusBadge" class="badge badge-yellow">업로드 대기</span>
+              </div>
+            </div>
+            <div class="upload-grid">
+              <div class="upload-box">
+                <div id="uploadedFilename" class="filename">업로드된 파일이 없습니다.</div>
+                <div id="uploadedHelper" class="helper">수동 업로드 버튼으로 로컬 PC의 `.xlsx` 파일을 올리거나, 다른 Agent가 `/api/upload-from-agent`로 전송하면 자동 업로드 상태로 전환됩니다.</div>
+              </div>
+              <button id="uploadButton" class="button-dark" type="button">엑셀 업로드</button>
+            </div>
+            <input id="fileInput" class="hidden" type="file" accept=".xlsx,.xlsm,.xltx,.xltm" />
+            <div id="analysisLine" class="status-line">필수 시트 상태를 아직 확인하지 않았습니다.</div>
+            <div style="margin-top:12px;">
+              <button id="generateButton" class="button-dark" type="button" style="width:100%;">초안 생성</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-row">
+              <div class="card-title">공지 본문</div>
+              <span class="badge badge-blue" style="background:#f8f5ff; color:#6b41e7;">수정 가능</span>
+            </div>
+            <label class="field-label" for="boardTitle">제목</label>
+            <input id="boardTitle" class="text-input" type="text" placeholder="초안 생성 후 제목이 여기에 채워집니다." />
+            <div class="field-meter" data-meter="boardTitle">
+              <span class="counter">0 / 28자</span>
+              <span class="meter-note">권장 20자</span>
+            </div>
+
+            <label class="field-label" for="boardSummary">한줄 요약</label>
+            <textarea id="boardSummary" placeholder="예: ○○ 상품 인수기준 변경안을 안내드립니다. 하단 참고 바랍니다."></textarea>
+            <div class="field-meter" data-meter="boardSummary">
+              <span class="counter">0 / 64자</span>
+              <span class="meter-note">권장 48자</span>
+            </div>
+
+            <label class="field-label" for="boardHighlights">주요 변경사항</label>
+            <textarea id="boardHighlights" placeholder="한 줄에 하나씩 주요 변경사항을 입력합니다. 예: 암진단 담보: 2,000 → 3,000"></textarea>
+            <div class="field-meter" data-meter="boardHighlights">
+              <span class="counter">0 / 180자</span>
+              <span class="meter-note">권장 120자</span>
+            </div>
+
+            <label class="field-label" for="boardCautions">유의사항</label>
+            <textarea id="boardCautions" placeholder="한 줄에 하나씩 유의사항을 입력합니다."></textarea>
+            <div class="field-meter" data-meter="boardCautions">
+              <span class="counter">0 / 140자</span>
+              <span class="meter-note">권장 90자</span>
+            </div>
+
+            <div class="two-col">
+              <div class="field-stack">
+                <div class="field-meta">
+                  <label class="field-label" for="boardEffectiveDate">적용시점</label>
+                  <span id="effectiveDateBadge" class="badge badge-yellow hidden">검토 필요</span>
+                </div>
+                <input id="boardEffectiveDate" class="text-input" type="text" placeholder="예: 2026-10-01" />
+              </div>
+              <div class="field-stack">
+                <div class="field-meta">
+                  <label class="field-label" for="boardContact">담당자(문의)</label>
+                  <span id="contactBadge" class="badge badge-yellow hidden">검토 필요</span>
+                </div>
+                <input id="boardContact" class="text-input" type="text" placeholder="예: 상품운영팀" />
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-row">
+              <div class="card-title">FAQ</div>
+              <span class="badge badge-blue" style="background:#f8f5ff; color:#6b41e7;">수정 가능</span>
+            </div>
+            <div class="faq-controls">
+              <div class="faq-helper">빈 카드나 전부 비어 있는 항목은 PPT 생성 시 자동 제외됩니다.</div>
+              <button id="faqAddButton" class="faq-add-button" type="button">FAQ 추가</button>
+            </div>
+            <div id="faqList"></div>
+          </div>
+
+          <button id="pptButton" class="button-purple button-disabled" type="button" disabled>PPT 생성</button>
+          <div id="pptStatusLine" class="status-line">구조화된 공지 본문과 FAQ를 확인한 뒤 PPT를 생성합니다.</div>
+          <div class="footer-tags">
+            <span class="badge badge-yellow">내부 검토용 초안</span>
+            <span class="badge badge-blue">최종 편집본 기준 생성</span>
+          </div>
+        </section>
+      </div>
+
+      <div class="approval">
+        <div class="approval-card">
+          <div>
+            <div style="font-size:24px; font-weight:800; color:#203058;">공통 승인</div>
+            <div class="helper" style="margin-top:6px;">지원 Agent 결과는 시스템 반영정보 검토가 필요합니다. 심사 Agent 결과는 현장공지 배포 전 승인 필요합니다.</div>
+          </div>
+          <button class="approval-button" type="button">검토 및 승인하기</button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
+

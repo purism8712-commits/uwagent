@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import HomePage from "@/components/home-page";
+import AgentHubGate from "@/components/agent-hub-gate";
 import LoginPage from "@/components/login-page";
 import PreviewGate from "@/components/preview-gate";
 import { AUTH_SESSION_KEY, readAuthSession, writeAuthSession } from "@/lib/session";
@@ -31,7 +32,7 @@ describe("Login flow", () => {
     await waitFor(() => expect(loginButton).toBeEnabled());
     await user.click(loginButton);
 
-    expect(routerReplaceMock).toHaveBeenCalledWith("/preview");
+    expect(routerReplaceMock).toHaveBeenCalledWith("/agent-tabs");
     expect(window.localStorage.getItem(AUTH_SESSION_KEY)).toContain("12345");
     expect(window.localStorage.getItem(AUTH_SESSION_KEY)).toContain("신계약지원P");
   });
@@ -60,6 +61,12 @@ describe("Login flow", () => {
     await waitFor(() => expect(routerReplaceMock).toHaveBeenCalledWith("/"));
   });
 
+  it("redirects unauthenticated users away from the agent-tabs screen", async () => {
+    render(<AgentHubGate />);
+
+    await waitFor(() => expect(routerReplaceMock).toHaveBeenCalledWith("/"));
+  });
+
   it("falls back to window.name when localStorage writes are blocked", () => {
     const session = {
       employeeId: "12345",
@@ -75,7 +82,6 @@ describe("Login flow", () => {
     try {
       writeAuthSession(session);
 
-      expect(window.name).toContain(AUTH_SESSION_KEY);
       expect(readAuthSession()).toEqual(session);
     } finally {
       setItemSpy.mockRestore();

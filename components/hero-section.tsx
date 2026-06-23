@@ -13,7 +13,6 @@ export function HeroSection({ userSession, onLogout }: HeroSectionProps) {
     <section className={styles.heroGrid}>
       <div className={styles.heroPanel}>
         <div className={styles.heroContent}>
-          <span className={styles.heroEyebrow}>Common Core Wizard</span>
           <h1 className={styles.heroTitle}>신계약 인수기준 반영 Agent</h1>
           <p className={styles.heroDescription}>
             변경된 엑셀, 표, 자연어 입력을 공통 양식 초안으로 정리하고 검토메모와

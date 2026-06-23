@@ -5,6 +5,7 @@ import type { ParsedProductCandidate } from "@/lib/product-candidate-parser";
 
 export type MasterWorkbookSnapshot = {
   uploadedFiles: string[];
+  sourceFiles: string[];
   request: DraftRequest;
   createdAt: string;
 };
@@ -41,6 +42,9 @@ function normalizeSnapshot(value: unknown): MasterWorkbookSnapshot | null {
   const uploadedFiles = Array.isArray(value.uploadedFiles)
     ? value.uploadedFiles.filter((item): item is string => typeof item === "string")
     : [];
+  const sourceFiles = Array.isArray(value.sourceFiles)
+    ? value.sourceFiles.filter((item): item is string => typeof item === "string")
+    : uploadedFiles;
 
   if (!request) {
     return null;
@@ -48,7 +52,8 @@ function normalizeSnapshot(value: unknown): MasterWorkbookSnapshot | null {
 
   return {
     uploadedFiles,
-      request: {
+    sourceFiles,
+    request: {
       fileName: typeof request.fileName === "string" ? request.fileName : "",
       rawInput: typeof request.rawInput === "string" ? request.rawInput : "",
       answers: isRecord(request.answers)

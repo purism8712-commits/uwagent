@@ -1,7 +1,10 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { buildDraftWorkbookData } from "@/lib/draft-builder";
+import { hydrateMasterProductsFromData } from "@/lib/master-product-hydrator";
+import { buildFallbackProductCandidates } from "@/lib/product-candidate-parser";
 import { masterWorkbookStore } from "@/lib/master-workbook-store";
+import type { ParsedNoteEntry, ParsedProductCandidate, SpecialItemMapping } from "@/lib/product-candidate-parser";
 
 type WorkbookSection = "Rule Master" | "Note Master" | "Rule-Note Map" | "Change Log";
 
@@ -50,6 +53,213 @@ type SourceContext = {
   sourceLocation?: string;
 };
 
+function buildSpecialItemContext({
+  product,
+  item,
+  index
+}: {
+  product: ParsedProductCandidate;
+  item: SpecialItemMapping;
+  index: number;
+}) {
+  const specialName = stringValue(item.specialName) || `특약 ${index + 1}`;
+  const insuranceCode = stringValue(item.insuranceCode);
+  const limitValue = stringValue(item.limitValue);
+  const noteText = stringValue(item.noteText);
+
+  const sourceLocation = buildSourceContext({
+    sourceFileName: product.sourceFileName,
+    sheetName: product.sheetName,
+    productName: product.productName,
+    specialName,
+    insuranceCode
+  }).sourceLocation;
+
+  return {
+    specialName,
+    insuranceCode,
+    limitValue,
+    noteText,
+    sourceLocation
+  };
+}
+
+function buildSourceRowsFromCandidates(sourceCandidates: ParsedProductCandidate[]): SearchRow[] {
+  return sourceCandidates.flatMap((product) => {
+    const productName = stringValue(product.productName);
+    const productCode = stringValue(product.productCode);
+    const sourceFileName = stringValue(product.sourceFileName);
+    const sheetName = stringValue(product.sheetName);
+    const insuranceCodeMapping = stringValue(product.insuranceCodeMapping);
+    const saleDate = stringValue(product.saleDate);
+
+    const specialItems = Array.isArray(product.specialItems) ? product.specialItems : [];
+    const noteEntries = Array.isArray(product.noteEntries) ? product.noteEntries : [];
+
+    const productSummary = [
+      productName,
+      productCode ? `상품코드 ${productCode}` : "",
+      insuranceCodeMapping ? `보험코드 ${insuranceCodeMapping}` : "",
+      saleDate ? `판매일자 ${saleDate}` : ""
+    ]
+      .filter(Boolean)
+      .join(" / ");
+
+    const productSearchText = [
+      productSummary,
+      sourceFileName,
+      sheetName,
+      insuranceCodeMapping,
+      specialItems.map((item) => `${item.specialName} ${item.insuranceCode} ${item.limitValue ?? ""} ${item.noteText ?? ""}`).join(" "),
+      noteEntries.map((note) => `${note.noteLabel} ${note.noteText} ${note.noteType}`).join(" ")
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    const rows: SearchRow[] = [
+      {
+        id: `src-${sanitizeId(`${sourceFileName}-${sheetName}-${productCode || productName}`)}`,
+        section: "Rule Master" as const,
+        title: productName || productCode || sourceFileName,
+        summary: productSummary,
+        searchText: productSearchText,
+        ...buildSourceContext({
+          sourceFileName,
+          sheetName,
+          productName
+        })
+      }
+    ];
+
+    specialItems.forEach((item, index) => {
+      const context = buildSpecialItemContext({ product, item, index });
+      const specialSummary = [
+        productName,
+        context.specialName,
+        context.insuranceCode ? `보험코드 ${context.insuranceCode}` : "",
+        context.limitValue ? `가입한도 ${context.limitValue}` : "",
+        context.noteText ? `주석 ${context.noteText}` : ""
+      ]
+        .filter(Boolean)
+        .join(" / ");
+
+      rows.push({
+        id: `src-rule-${sanitizeId(`${sourceFileName}-${sheetName}-${context.specialName}-${context.insuranceCode}`)}`,
+        section: "Rule Master" as const,
+        title: `${productName || sourceFileName} / ${context.specialName}`,
+        summary: specialSummary,
+        searchText: [
+          productName,
+          productCode,
+          sourceFileName,
+          sheetName,
+          context.specialName,
+          context.insuranceCode,
+          context.limitValue,
+          context.noteText
+        ]
+          .filter(Boolean)
+          .join(" "),
+        ...buildSourceContext({
+          sourceFileName,
+          sheetName,
+          productName,
+          specialName: context.specialName,
+          insuranceCode: context.insuranceCode,
+          sourceLocation: context.sourceLocation
+        })
+      });
+
+      rows.push({
+        id: `src-map-${sanitizeId(`${sourceFileName}-${sheetName}-${context.specialName}-${context.insuranceCode}`)}`,
+        section: "Rule-Note Map" as const,
+        title: `${context.specialName} 연결관계`,
+        summary: [
+          productName,
+          context.specialName,
+          context.insuranceCode ? `보험코드 ${context.insuranceCode}` : "",
+          context.noteText ? `주석 ${context.noteText}` : ""
+        ]
+          .filter(Boolean)
+          .join(" / "),
+        searchText: [
+          productName,
+          productCode,
+          sourceFileName,
+          sheetName,
+          context.specialName,
+          context.insuranceCode,
+          context.noteText,
+          context.limitValue
+        ]
+          .filter(Boolean)
+          .join(" "),
+        ...buildSourceContext({
+          sourceFileName,
+          sheetName,
+          productName,
+          specialName: context.specialName,
+          insuranceCode: context.insuranceCode,
+          sourceLocation: context.sourceLocation
+        })
+      });
+    });
+
+    noteEntries.forEach((note, index) => {
+      const noteLabel = stringValue(note.noteLabel) || `주${index + 1}`;
+      const noteText = stringValue(note.noteText);
+      const relatedSpecialName = stringValue(note.relatedSpecialName);
+      const insuranceCode = stringValue(note.insuranceCode);
+      const limitValue = stringValue(note.limitValue);
+      const sourceLocation = buildSourceContext({
+        sourceFileName,
+        sheetName,
+        productName,
+        specialName: relatedSpecialName || noteLabel,
+        insuranceCode
+      }).sourceLocation;
+
+      rows.push({
+        id: `src-note-${sanitizeId(`${sourceFileName}-${sheetName}-${noteLabel}-${index}`)}`,
+        section: "Note Master" as const,
+        title: noteLabel,
+        summary: [
+          productName,
+          relatedSpecialName,
+          noteText,
+          insuranceCode ? `보험코드 ${insuranceCode}` : "",
+          limitValue ? `가입한도 ${limitValue}` : ""
+        ]
+          .filter(Boolean)
+          .join(" / "),
+        searchText: [
+          productName,
+          relatedSpecialName,
+          noteLabel,
+          noteText,
+          insuranceCode,
+          limitValue,
+          note.noteType,
+          sourceFileName,
+          sheetName
+        ]
+          .filter(Boolean)
+          .join(" "),
+        ...buildSourceContext({
+          sourceFileName,
+          sheetName,
+          productName,
+          specialName: relatedSpecialName || noteLabel,
+          insuranceCode,
+          sourceLocation
+        })
+      });
+    });
+
+    return rows;
+  });
+}
+
 function tokenize(text: string) {
   return text
     .toLowerCase()
@@ -83,6 +293,10 @@ function stringValue(value: string | number | undefined) {
   }
 
   return String(value).trim();
+}
+
+function sanitizeId(text: string) {
+  return text.replace(/[^a-zA-Z0-9가-힣_-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
 }
 
 function createSheetNameResolver(
@@ -351,7 +565,7 @@ function buildChangeRows(
 
 function buildFallbackAnswer(question: string, evidence: InquiryEvidence[]) {
   if (evidence.length === 0) {
-    return `통합 마스터에서 "${question}"와 직접 연결되는 근거를 아직 찾지 못했습니다. 상품명, 특약명, 보험코드, 주석ID 중 하나를 더 넣어 질문해 주세요.`;
+    return `최종 업로드된 통합 마스터에서 "${question}"와 직접 연결되는 근거를 아직 찾지 못했습니다. 상품명, 특약명, 보험코드, 주석ID 중 하나를 더 넣어 질문해 주세요.`;
   }
 
   const firstEvidence = evidence[0];
@@ -361,7 +575,7 @@ function buildFallbackAnswer(question: string, evidence: InquiryEvidence[]) {
     .join("\n");
 
   return [
-    `통합 마스터 기준으로 가장 가까운 근거는 ${firstEvidence.section}의 "${firstEvidence.title}"입니다.`,
+    `최종 업로드된 통합 마스터 기준으로 가장 가까운 근거는 ${firstEvidence.section}의 "${firstEvidence.title}"입니다.`,
     "관련 근거 요약:",
     evidenceList,
     "위 근거를 바탕으로 답변 초안을 검토해 주세요. BizRouter 키가 설정되면 이 근거를 기반으로 자연어 답변을 더 정교하게 생성할 수 있습니다."
@@ -397,11 +611,11 @@ async function generateBizRouterAnswer(question: string, evidence: InquiryEviden
         {
           role: "system",
           content:
-            "너는 보험 신계약 통합 마스터를 읽고 답변하는 사전문의 에이전트다. 근거에 없는 내용은 추정하지 말고, 한국어로 짧고 명확하게 답하라."
+            "너는 보험 신계약의 사전문의 에이전트다. 최종 업로드된 통합 마스터 엑셀을 우선적으로 읽고 답변하되, 근거에 없는 내용은 추정하지 말고, 한국어로 짧고 명확하게 답하라."
         },
         {
           role: "user",
-          content: `질문:\n${question}\n\n통합 마스터 근거:\n${evidenceBlock}\n\n요구사항:\n1. 질문에 대한 답변을 한국어로 작성\n2. 근거가 불충분하면 불충분하다고 명시\n3. 마지막에 "근거:" 한 줄로 어떤 Rule/Note를 썼는지 간단히 적기`
+          content: `질문:\n${question}\n\n원본 엑셀 근거:\n${evidenceBlock}\n\n요구사항:\n1. 질문에 대한 답변을 한국어로 작성\n2. 근거가 불충분하면 불충분하다고 명시\n3. 마지막에 "근거:" 한 줄로 어떤 Rule/Note를 썼는지 간단히 적기`
         }
       ]
     })
@@ -431,12 +645,18 @@ async function buildEvidence(question: string) {
 
   const workbook = buildDraftWorkbookData(snapshot.request, { mode: "master" });
   const resolveSheetName = createSheetNameResolver(snapshot.request.masterProducts ?? []);
-  const searchRows = [
+  const masterRows = [
     ...buildRuleRows(workbook.ruleMaster, resolveSheetName),
     ...buildNoteRows(workbook.noteMaster, resolveSheetName),
     ...buildMapRows(workbook.ruleNoteMap, resolveSheetName),
     ...buildChangeRows(workbook.changeLog, resolveSheetName)
   ];
+  const sourceFiles = snapshot.sourceFiles?.length > 0 ? snapshot.sourceFiles : snapshot.uploadedFiles ?? [];
+  const sourceCandidates = await hydrateMasterProductsFromData(sourceFiles);
+  const resolvedSourceCandidates =
+    sourceCandidates.length > 0 ? sourceCandidates : buildFallbackProductCandidates(sourceFiles);
+  const sourceRows = buildSourceRowsFromCandidates(resolvedSourceCandidates);
+  const searchRows = masterRows.length > 0 ? masterRows : sourceRows;
 
   const questionTokens = tokenize(question);
   const evidence = searchRows

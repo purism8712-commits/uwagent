@@ -614,12 +614,8 @@ describe("Common core app flow", () => {
       screen.getByRole("button", { name: "통합 마스터 다운로드" })
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "최종 업로드" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "지원AGENT 연결" })
-    ).toHaveAttribute("href", "https://uw-guide.vercel.app/support-agent-app.html");
-    expect(
-      screen.getByRole("link", { name: "심사AGENT 연결" })
-    ).toHaveAttribute("href", "https://review-agent-lovat.vercel.app/");
+    expect(screen.getByRole("button", { name: "지원AGENT 연결" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "심사AGENT 연결" })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "상품 추출 다운로드" })
     ).toBeDisabled();

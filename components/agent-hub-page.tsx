@@ -4,10 +4,15 @@ import { Fragment, useEffect, useMemo, useState, type ChangeEvent, type ReactNod
 import { HomePageContent } from "@/components/home-page";
 import { HeroSection } from "@/components/hero-section";
 import styles from "./components.module.css";
+import { clearAuthSession } from "@/lib/session";
 import { canUseAgentScope } from "@/lib/session";
 import type { AuthSession } from "@/lib/session";
 import type { InquiryEvidence } from "@/lib/pre-inquiry";
 import { buildReviewDraftFromFile, type ReviewDraftFaq, type ReviewWorkbookDraft } from "@/lib/review-agent-draft";
+import { extractProductCandidatesFromFiles, type ParsedProductCandidate } from "@/lib/product-candidate-parser";
+import { buildSupportWorkbookBuffer } from "@/lib/support-agent-export";
+import { SupportAgentFrame } from "@/components/support-agent-frame";
+import { ReviewAgentFrame } from "@/components/review-agent-frame";
 
 type AgentTab = "기획" | "지원" | "심사" | "사전문의";
 
@@ -66,13 +71,25 @@ function AgentFlowBar({
   );
 }
 
+function ReviewStepBar({
+  activeIndex
+}: {
+  activeIndex: number;
+}) {
+  return <AgentFlowBar labels={["변경내용 입력", "검토메모 및 질문 확인"]} activeIndex={activeIndex} />;
+}
+
 function SupportAgentPreview() {
-  const [guidelineFiles, setGuidelineFiles] = useState<string[]>([]);
-  const [rdFiles, setRdFiles] = useState<string[]>([]);
+  const [guidelineFiles, setGuidelineFiles] = useState<File[]>([]);
+  const [rdFiles, setRdFiles] = useState<File[]>([]);
+  const [parsedCandidates, setParsedCandidates] = useState<ParsedProductCandidate[]>([]);
   const [productFilter, setProductFilter] = useState<"미착수" | "진행중" | "보류" | "완료">("미착수");
   const [selectedProduct, setSelectedProduct] = useState("등록된 상품 없음");
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
+  const [transformStatus, setTransformStatus] = useState("가이드라인과 RD 원본파일을 먼저 업로드해 주세요.");
+  const [isTransforming, setIsTransforming] = useState(false);
+  const [generatedWorkbook, setGeneratedWorkbook] = useState<{ fileName: string; url: string } | null>(null);
   const nowLabel = useMemo(
     () =>
       new Intl.DateTimeFormat("ko-KR", {
@@ -82,101 +99,171 @@ function SupportAgentPreview() {
     []
   );
 
+  useEffect(
+    () => () => {
+      if (generatedWorkbook?.url) {
+        URL.revokeObjectURL(generatedWorkbook.url);
+      }
+    },
+    [generatedWorkbook]
+  );
+
   const allUploadedFiles = useMemo(
     () => [
-      ...guidelineFiles.map((fileName) => ({ fileName, type: "가이드라인", status: "업로드 완료" })),
-      ...rdFiles.map((fileName) => ({ fileName, type: "RD 원본파일", status: "업로드 완료" }))
+      ...guidelineFiles.map((file) => ({ fileName: file.name, type: "가이드라인", status: "업로드 완료" })),
+      ...rdFiles.map((file) => ({ fileName: file.name, type: "RD 원본파일", status: "업로드 완료" }))
     ],
     [guidelineFiles, rdFiles]
   );
 
-  const productRows = useMemo(
+  const supportProductRows = useMemo(
     () =>
-      allUploadedFiles.length > 0
-        ? allUploadedFiles.map((file, index) => {
-            const derivedName = file.fileName
-              .replace(/\.(xlsx?|csv|docx|pdf)$/iu, "")
-              .replace(/\s*\(?\d+\)?$/u, "")
-              .replace(/[_-]/g, " ")
-              .trim();
+      parsedCandidates.map((candidate, index) => {
+        const statusCycle = ["미착수", "진행중", "보류", "완료"] as const;
+        const status = statusCycle[index % statusCycle.length];
 
-            const statusCycle = ["미착수", "진행중", "보류", "완료"] as const;
-            const status = statusCycle[index % statusCycle.length];
-
-            return {
-              productName: derivedName || `상품 ${index + 1}`,
-              guidelineName: file.fileName,
-              status,
-              summary:
-                file.type === "가이드라인"
-                  ? "가이드라인 파일을 기준으로 시스템 반영 초안을 준비합니다."
-                  : "RD 원본 파일을 기준으로 상품별 반영 항목을 확인합니다."
-            };
-          })
-        : [],
-    [allUploadedFiles]
+        return {
+          ...candidate,
+          status
+        };
+      }),
+    [parsedCandidates]
   );
 
   const filteredProductRows = useMemo(
-    () => productRows.filter((row) => row.status === productFilter),
-    [productFilter, productRows]
+    () => supportProductRows.filter((row) => row.status === productFilter),
+    [productFilter, supportProductRows]
   );
 
   const counts = useMemo(
     () => ({
       totalFiles: allUploadedFiles.length,
-      productCount: productRows.length,
-      doneCount: productRows.filter((row) => row.status === "완료").length,
-      holdCount: productRows.filter((row) => row.status === "보류").length
+      productCount: supportProductRows.length,
+      doneCount: supportProductRows.filter((row) => row.status === "완료").length,
+      holdCount: supportProductRows.filter((row) => row.status === "보류").length
     }),
-    [allUploadedFiles.length, productRows]
+    [allUploadedFiles.length, supportProductRows]
   );
 
-  const canAskQuestion = productRows.length > 0 && selectedProduct !== "등록된 상품 없음" && question.trim().length > 0;
+  const canAskQuestion =
+    supportProductRows.length > 0 && selectedProduct !== "등록된 상품 없음" && question.trim().length > 0;
   const supportFlowIndex = !guidelineFiles.length
     ? 0
     : !rdFiles.length
       ? 1
-      : !productRows.length
+      : !parsedCandidates.length
         ? 2
-        : !answer
+        : !question.trim()
           ? 3
-          : 4;
+          : !answer
+            ? 3
+            : 4;
 
   useEffect(() => {
-    if (productRows.length === 0) {
+    if (supportProductRows.length === 0) {
       if (selectedProduct !== "등록된 상품 없음") {
         setSelectedProduct("등록된 상품 없음");
       }
       return;
     }
 
-    if (!productRows.some((row) => row.productName === selectedProduct)) {
-      setSelectedProduct(productRows[0]?.productName ?? "등록된 상품 없음");
+    if (!supportProductRows.some((row) => row.productName === selectedProduct)) {
+      setSelectedProduct(supportProductRows[0]?.productName ?? "등록된 상품 없음");
     }
-  }, [productRows, selectedProduct]);
+  }, [selectedProduct, supportProductRows]);
 
-  const handleFilesChange = (event: ChangeEvent<HTMLInputElement>, setter: (value: string[]) => void) => {
-    const nextFiles = Array.from(event.target.files ?? []).map((file) => file.name);
-    setter(nextFiles);
-    if (nextFiles.length > 0) {
-      setAnswer("");
-      if (selectedProduct === "등록된 상품 없음") {
-        setSelectedProduct(nextFiles[0] ?? "등록된 상품 없음");
+  const clearGeneratedWorkbook = () => {
+    setGeneratedWorkbook((current) => {
+      if (current?.url) {
+        URL.revokeObjectURL(current.url);
       }
-    }
+      return null;
+    });
   };
 
-  const handleTransform = () => {
-    if (productRows.length === 0) {
-      setAnswer("가이드라인과 RD 원본 파일을 먼저 업로드해 주세요.");
+  const handleFilesChange = (event: ChangeEvent<HTMLInputElement>, setter: (value: File[]) => void) => {
+    const nextFiles = Array.from(event.target.files ?? []);
+    setter(nextFiles);
+    clearGeneratedWorkbook();
+    setParsedCandidates([]);
+    setSelectedProduct("등록된 상품 없음");
+    setQuestion("");
+    setAnswer("");
+    setTransformStatus(
+      nextFiles.length > 0 ? "업로드 완료. 변환하기를 눌러 지원 Agent 초안을 정리해 주세요." : "가이드라인과 RD 원본파일을 먼저 업로드해 주세요."
+    );
+  };
+
+  const toArrayBuffer = (value: ArrayBuffer | SharedArrayBuffer | ArrayBufferView): ArrayBuffer => {
+    if (value instanceof ArrayBuffer) {
+      return value;
+    }
+
+    if (ArrayBuffer.isView(value)) {
+      return Uint8Array.from(
+        new Uint8Array(value.buffer, value.byteOffset, value.byteLength)
+      ).buffer;
+    }
+
+    return Uint8Array.from(new Uint8Array(value)).buffer;
+  };
+
+  const handleTransform = async () => {
+    if (guidelineFiles.length === 0 || rdFiles.length === 0) {
+      setTransformStatus("가이드라인과 RD 원본파일을 먼저 업로드해 주세요.");
       return;
     }
 
-    setSelectedProduct(productRows[0]?.productName ?? "등록된 상품 없음");
-    setAnswer(
-      `업로드된 ${counts.totalFiles}개 파일을 기반으로 지원 Agent용 상품 목록을 정리했습니다. 상품별 시스템 반영 초안을 이어서 확인할 수 있습니다.`
-    );
+    setIsTransforming(true);
+    clearGeneratedWorkbook();
+    setAnswer("");
+
+    try {
+      const uploadedFiles = [...guidelineFiles, ...rdFiles];
+      const candidates = await extractProductCandidatesFromFiles(uploadedFiles);
+      setParsedCandidates(candidates);
+
+      if (candidates.length === 0) {
+        setTransformStatus("업로드된 파일에서 지원 Agent용 상품 후보를 찾지 못했습니다.");
+        return;
+      }
+
+      const { buffer, fileName } = await buildSupportWorkbookBuffer({
+        guidelineFileNames: guidelineFiles.map((file) => file.name),
+        rdFileNames: rdFiles.map((file) => file.name),
+        candidates
+      });
+
+      const downloadBuffer = toArrayBuffer(buffer);
+      const url = URL.createObjectURL(
+        new Blob([downloadBuffer], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        })
+      );
+
+      setGeneratedWorkbook({ fileName, url });
+      setSelectedProduct(candidates[0]?.productName ?? "등록된 상품 없음");
+      setTransformStatus(`${fileName} 생성 완료 · ${candidates.length}개 후보를 정리했습니다.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "알 수 없는 오류";
+      setTransformStatus(`변환 중 오류가 발생했습니다. ${message}`);
+      setGeneratedWorkbook(null);
+    } finally {
+      setIsTransforming(false);
+    }
+  };
+
+  const handleDownloadGeneratedWorkbook = () => {
+    if (!generatedWorkbook) {
+      return;
+    }
+
+    const anchor = document.createElement("a");
+    anchor.href = generatedWorkbook.url;
+    anchor.download = generatedWorkbook.fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
   };
 
   const handleQuestion = () => {
@@ -185,19 +272,24 @@ function SupportAgentPreview() {
       return;
     }
 
-    const matched = productRows.find((row) => row.productName === selectedProduct);
+    const matched = supportProductRows.find((row) => row.productName === selectedProduct);
+    const insuranceCodes = matched?.insuranceCodeMapping || matched?.insuranceCode || "보험코드 미기재";
+
     setAnswer(
-      `${selectedProduct} 기준 응답: ${question.trim()}에 대해 ${matched?.status ?? "미착수"} 상태로 검토가 필요합니다. 지원 Agent에서는 업로드된 가이드라인과 RD 원본파일을 같이 확인해 시스템 반영용 초안을 만듭니다.`
+      `${selectedProduct} 기준 응답: ${question.trim()}에 대해 ${matched?.status ?? "미착수"} 상태로 검토가 필요합니다. 지원 Agent에서는 업로드된 가이드라인과 RD 원본파일을 같이 확인해 시스템 반영용 초안을 만듭니다. 연결된 보험코드: ${insuranceCodes}.`
     );
   };
 
   const handleReset = () => {
+    clearGeneratedWorkbook();
     setGuidelineFiles([]);
     setRdFiles([]);
+    setParsedCandidates([]);
     setProductFilter("미착수");
     setSelectedProduct("등록된 상품 없음");
     setQuestion("");
     setAnswer("");
+    setTransformStatus("가이드라인과 RD 원본파일을 먼저 업로드해 주세요.");
   };
 
   return (
@@ -209,7 +301,6 @@ function SupportAgentPreview() {
 
       <section className={styles.supportAgentHeader}>
         <div className={styles.supportAgentHeadingBlock}>
-          <span className={styles.supportAgentEyebrow}>지원 현황</span>
           <h3 className={styles.supportAgentHeading}>지원 Agent 진행 요약</h3>
           <p className={styles.supportAgentIntro}>업로드 파일 수와 상품별 진행 상태를 먼저 확인한 뒤 상세 작업으로 이어집니다.</p>
         </div>
@@ -235,7 +326,7 @@ function SupportAgentPreview() {
       </section>
 
       <div className={styles.supportAgentToolbar}>
-        <p className={styles.supportAgentToolbarText}>로컬 데모 화면에서 업로드 흐름과 상품별 상태를 바로 확인할 수 있습니다.</p>
+        <p className={styles.supportAgentToolbarText}>{transformStatus}</p>
         <button className={styles.supportAgentRefreshButton} type="button" onClick={handleReset}>
           전체새로고침
         </button>
@@ -275,8 +366,8 @@ function SupportAgentPreview() {
             <div className={styles.supportAgentSelectedFiles}>
               {guidelineFiles.length > 0 ? (
                 <ul className={styles.supportAgentSelectedList}>
-                  {guidelineFiles.map((fileName) => (
-                    <li key={fileName}>{fileName}</li>
+                  {guidelineFiles.map((file) => (
+                    <li key={file.name}>{file.name}</li>
                   ))}
                 </ul>
               ) : (
@@ -305,8 +396,8 @@ function SupportAgentPreview() {
             <div className={styles.supportAgentSelectedFiles}>
               {rdFiles.length > 0 ? (
                 <ul className={styles.supportAgentSelectedList}>
-                  {rdFiles.map((fileName) => (
-                    <li key={fileName}>{fileName}</li>
+                  {rdFiles.map((file) => (
+                    <li key={file.name}>{file.name}</li>
                   ))}
                 </ul>
               ) : (
@@ -317,12 +408,17 @@ function SupportAgentPreview() {
         </div>
 
         <div className={styles.supportAgentActionRow}>
-          <button className={styles.supportAgentActionButton} type="button" onClick={handleTransform}>
-            변환하기
+          <button className={styles.supportAgentActionButton} type="button" onClick={handleTransform} disabled={isTransforming}>
+            {isTransforming ? "변환 중..." : "변환하기"}
           </button>
           <button className={styles.supportAgentSecondaryButton} type="button" onClick={handleReset}>
             파일 새로고침
           </button>
+          {generatedWorkbook ? (
+            <button className={styles.supportAgentSecondaryButton} type="button" onClick={handleDownloadGeneratedWorkbook}>
+              {generatedWorkbook.fileName} 다운로드
+            </button>
+          ) : null}
           <span className={styles.supportAgentActionHint}>
             {allUploadedFiles.length > 0
               ? `${allUploadedFiles.length}개 파일이 준비되었습니다.`
@@ -359,10 +455,14 @@ function SupportAgentPreview() {
                         type="button"
                         onClick={() => {
                           if (file.type === "가이드라인") {
-                            setGuidelineFiles((current) => current.filter((name) => name !== file.fileName));
+                            setGuidelineFiles((current) => current.filter((item) => item.name !== file.fileName));
                           } else {
-                            setRdFiles((current) => current.filter((name) => name !== file.fileName));
+                            setRdFiles((current) => current.filter((item) => item.name !== file.fileName));
                           }
+                          setParsedCandidates([]);
+                          clearGeneratedWorkbook();
+                          setAnswer("");
+                          setTransformStatus("가이드라인과 RD 원본파일을 먼저 업로드해 주세요.");
                         }}
                       >
                         삭제
@@ -410,11 +510,15 @@ function SupportAgentPreview() {
         {filteredProductRows.length > 0 ? (
           <div className={styles.supportAgentProductGrid}>
             {filteredProductRows.map((row) => (
-              <article key={row.productName} className={styles.supportAgentProductCard}>
+              <article key={`${row.sourceFileName}-${row.productName}-${row.productCode ?? ""}`} className={styles.supportAgentProductCard}>
                 <div className={styles.supportAgentProductCardTop}>
                   <div>
                     <h5 className={styles.supportAgentProductCardTitle}>{row.productName}</h5>
-                    <p className={styles.supportAgentProductCardMeta}>{row.guidelineName}</p>
+                    <p className={styles.supportAgentProductCardMeta}>
+                      {row.productCode ? `상품코드 ${row.productCode}` : "상품코드 미기재"}
+                      {row.insuranceCode ? ` · 보험코드 ${row.insuranceCode}` : ""}
+                      {row.saleDate ? ` · 판매일자 ${row.saleDate}` : ""}
+                    </p>
                   </div>
                   <span className={styles.supportAgentProductStatus}>{row.status}</span>
                 </div>
@@ -451,13 +555,13 @@ function SupportAgentPreview() {
               className={styles.supportAgentSelect}
               value={selectedProduct}
               onChange={(event) => setSelectedProduct(event.target.value)}
-              disabled={productRows.length === 0}
+              disabled={supportProductRows.length === 0}
             >
-              {productRows.length === 0 ? (
+              {supportProductRows.length === 0 ? (
                 <option value="등록된 상품 없음">등록된 상품 없음</option>
               ) : (
-                productRows.map((row) => (
-                  <option key={row.productName} value={row.productName}>
+                supportProductRows.map((row) => (
+                  <option key={row.id} value={row.productName}>
                     {row.productName}
                   </option>
                 ))
@@ -534,15 +638,7 @@ function ReviewAgentPreview() {
 
   const hasUploadedFile = uploadedFileName.length > 0;
   const hasEditableDraft = noticeTitle.trim() || oneLineSummary.trim() || majorChanges.trim() || cautions.trim();
-  const reviewFlowIndex = !hasUploadedFile
-    ? 0
-    : !draftCreated
-      ? 1
-      : !faqs.some((faq) => faq.question.trim() || faq.answer.trim())
-        ? 2
-        : !pptGenerated && !approved
-          ? 3
-          : 4;
+  const reviewFlowIndex = draftCreated ? 1 : hasUploadedFile ? 0 : 0;
 
   const handleReviewUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -661,15 +757,40 @@ function ReviewAgentPreview() {
   };
 
   return (
-    <div className={styles.reviewAgentApp}>
-      <AgentFlowBar
-        labels={["통합 마스터 업로드", "공지 본문 확인", "검토메모 정리", "핵심 질문", "최종 연결"]}
-        activeIndex={reviewFlowIndex}
-      />
+    <div className={styles.reviewAgentWorkspace}>
+      <section className={styles.reviewAgentHero}>
+        <div className={styles.reviewAgentHeroCopy}>
+          <h1 className={styles.reviewAgentHeroTitle}>신계약 공통 에이전트</h1>
+          <p className={styles.reviewAgentHeroDescription}>
+            변경된 엑셀, 표, 자연어 입력을 공통 양식 초안으로 정리하고 검토메모와 확인 질문까지 이어서 처리하는 내부 업무용
+            데스크톱 에이전트입니다.
+          </p>
+        </div>
+        <div className={styles.reviewAgentMetrics}>
+          <div className={styles.reviewAgentMetricCard}>
+            <span className={styles.reviewAgentMetricLabel}>지원 입력</span>
+            <span className={styles.reviewAgentMetricValue}>엑셀 · 표 · 자연어</span>
+          </div>
+          <div className={styles.reviewAgentMetricCard}>
+            <span className={styles.reviewAgentMetricLabel}>출력 흐름</span>
+            <span className={styles.reviewAgentMetricValue}>초안 생성 → 검토 질문</span>
+          </div>
+          <div className={styles.reviewAgentMetricCard}>
+            <span className={styles.reviewAgentMetricLabel}>상태 기준</span>
+            <span className={styles.reviewAgentMetricValue}>초안 / 검토 필요</span>
+          </div>
+        </div>
+      </section>
 
+      <ReviewStepBar activeIndex={reviewFlowIndex} />
+
+      <div className={styles.reviewAgentApp}>
       <section className={styles.reviewAgentPanel}>
         <div className={styles.reviewAgentPanelHeader}>
-          <div>
+          <div className={styles.reviewAgentPanelHeadingBlock}>
+            <span className={styles.reviewAgentPanelIcon} aria-hidden="true">
+              📣
+            </span>
             <h3 className={styles.agentPreviewSectionTitle}>심사 Agent</h3>
           </div>
           <div className={styles.reviewAgentChipRow}>
@@ -681,31 +802,31 @@ function ReviewAgentPreview() {
         </div>
 
         <div className={styles.agentPreviewUploadRow}>
-          <div className={styles.agentPreviewUploadInfo}>
-            <strong className={styles.agentPreviewUploadFile}>{uploadedFileName || "업로드된 파일이 없습니다."}</strong>
-            <p className={styles.agentPreviewUploadText}>
-              {hasUploadedFile
-                ? "로컬 PC에서 선택한 파일이 업로드되었습니다."
-                : "수동 업로드 버튼으로 로컬 PC의 .xlsx 파일을 올리거나, 지원 Agent 전달 시 자동 연동되는 흐름입니다."}
-            </p>
+            <div className={styles.agentPreviewUploadInfo}>
+              <strong className={styles.agentPreviewUploadFile}>{uploadedFileName || "업로드된 파일이 없습니다."}</strong>
+              <p className={styles.agentPreviewUploadText}>
+                {hasUploadedFile
+                  ? "로컬 PC에서 선택한 파일이 업로드되었습니다."
+                  : "수동 업로드 버튼으로 로컬 PC의 .xlsx 파일을 올리면 현장공지자료 초안을 생성하는 흐름입니다."}
+              </p>
+            </div>
+            <input
+              className={styles.supportAgentHiddenInput}
+              id="review-master-upload"
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleReviewUpload}
+            />
+            <label className={styles.agentPreviewDisabledButton} htmlFor="review-master-upload">
+              엑셀 업로드
+            </label>
           </div>
-          <input
-            className={styles.supportAgentHiddenInput}
-            id="review-master-upload"
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={handleReviewUpload}
-          />
-          <label className={styles.agentPreviewDisabledButton} htmlFor="review-master-upload">
-            엑셀 업로드
-          </label>
-        </div>
 
-        <p className={styles.agentPreviewHint}>
-          {hasUploadedFile ? uploadStatusText : "필수 시트 상태를 아직 확인하지 않았습니다."}
-        </p>
-        <button
-          className={styles.reviewAgentPrimaryButton}
+          <p className={styles.agentPreviewHint}>
+            {hasUploadedFile ? uploadStatusText : "필수 시트 상태를 아직 확인하지 않았습니다."}
+          </p>
+          <button
+            className={styles.reviewAgentPrimaryButton}
           type="button"
           disabled={!hasUploadedFile}
           onClick={handleCreateReviewDraft}
@@ -846,9 +967,9 @@ function ReviewAgentPreview() {
       <section className={styles.reviewAgentPanel}>
         <div className={styles.agentPreviewCardHeader}>
           <div>
-            <h3 className={styles.agentPreviewSectionTitle}>PPT 생성 및 공통 승인</h3>
+            <h3 className={styles.agentPreviewSectionTitle}>PPT 생성</h3>
             <p className={styles.agentPreviewUploadText}>
-              구조화된 공지 본문과 FAQ를 확인한 뒤 현장공지 초안 파일을 생성하고 승인 상태를 남깁니다.
+              구조화된 공지 본문과 FAQ를 확인한 뒤 현장공지 초안 파일을 생성합니다.
             </p>
           </div>
           <span className={approved ? styles.reviewAgentSuccessPill : styles.agentPreviewStatusPill}>
@@ -873,6 +994,30 @@ function ReviewAgentPreview() {
           </span>
         </div>
       </section>
+
+      <section className={styles.reviewAgentApprovalPanel}>
+        <div className={styles.agentPreviewCardHeader}>
+          <div>
+            <h3 className={styles.agentPreviewSectionTitle}>공통 승인</h3>
+            <p className={styles.agentPreviewUploadText}>
+              지원 Agent 결과는 시스템 반영 정보 검토가 필요하고, 심사 Agent 결과는 현장공지 배포 전 승인이 필요합니다.
+            </p>
+          </div>
+        </div>
+
+        <div className={styles.reviewAgentApprovalCard}>
+          <div className={styles.reviewAgentApprovalTextBlock}>
+            <strong className={styles.reviewAgentApprovalTitle}>검토 및 승인 대상</strong>
+            <p className={styles.reviewAgentApprovalDesc}>
+              현재 편집본과 생성된 PPT 초안을 확인한 뒤 승인 상태를 최종 기록합니다.
+            </p>
+          </div>
+          <button className={styles.reviewAgentApprovalButton} type="button" onClick={() => setApproved(true)}>
+            검토 및 승인하기
+          </button>
+        </div>
+      </section>
+      </div>
     </div>
   );
 }
@@ -882,7 +1027,7 @@ function PreInquiryAgentPreview() {
   const [answer, setAnswer] = useState("");
   const [evidence, setEvidence] = useState<InquiryEvidence[]>([]);
   const [source, setSource] = useState<"bizrouter" | "local">("local");
-  const [status, setStatus] = useState("통합 마스터 기준으로 자연어 질문을 입력해 주세요.");
+  const [status, setStatus] = useState("원본 업로드 파일 기준으로 자연어 질문을 입력해 주세요.");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAdopting, setIsAdopting] = useState(false);
   const [adoptedMessage, setAdoptedMessage] = useState("");
@@ -905,7 +1050,7 @@ function PreInquiryAgentPreview() {
 
     setIsSubmitting(true);
     setAdoptedMessage("");
-    setStatus("통합 마스터에서 관련 근거를 찾고 답변을 생성하고 있습니다.");
+    setStatus("원본 업로드 파일에서 관련 근거를 찾고 답변을 생성하고 있습니다.");
 
     try {
       const response = await fetch("/api/pre-inquiry", {
@@ -990,7 +1135,7 @@ function PreInquiryAgentPreview() {
   return (
     <div className={styles.preInquiryAgentApp}>
       <AgentFlowBar
-        labels={["질문 입력", "통합 마스터 검색", "답변 확인", "채택 저장"]}
+        labels={["질문 입력", "원본 파일 검색", "답변 확인", "채택 저장"]}
         activeIndex={preInquiryFlowIndex}
       />
 
@@ -999,11 +1144,11 @@ function PreInquiryAgentPreview() {
           <div>
             <h3 className={styles.agentPreviewSectionTitle}>사전문의 Agent</h3>
             <p className={styles.preInquiryIntro}>
-              통합 마스터 파일을 기준으로 질문을 읽고, 관련 Rule/Note/Map 근거를 찾아 자연어 답변 초안을 제공합니다.
+              기획 단계에서 통합마스터를 만들 때 사용한 원본 업로드 파일을 기준으로 질문을 읽고, 관련 Rule/Note/Map 근거를 찾아 자연어 답변 초안을 제공합니다.
             </p>
           </div>
           <div className={styles.reviewAgentChipRow}>
-            <span className={styles.preInquiryInfoPill}>통합마스터 기반</span>
+            <span className={styles.preInquiryInfoPill}>원본 파일 기반</span>
             <span className={source === "bizrouter" ? styles.reviewAgentSuccessPill : styles.agentPreviewStatusPill}>
               {source === "bizrouter" ? "BizRouter 답변" : "로컬 근거 답변"}
             </span>
@@ -1032,7 +1177,7 @@ function PreInquiryAgentPreview() {
               setAnswer("");
               setEvidence([]);
               setAdoptedMessage("");
-              setStatus("통합 마스터 기준으로 자연어 질문을 입력해 주세요.");
+              setStatus("원본 업로드 파일 기준으로 자연어 질문을 입력해 주세요.");
             }}
           >
             초기화
@@ -1043,7 +1188,7 @@ function PreInquiryAgentPreview() {
 
       <section className={styles.preInquiryPanel}>
         <div className={styles.agentPreviewCardHeader}>
-          <h3 className={styles.agentPreviewSectionTitle}>근거로 사용한 통합 마스터 항목</h3>
+          <h3 className={styles.agentPreviewSectionTitle}>근거로 사용한 원본 파일 항목</h3>
         </div>
 
         {evidence.length > 0 ? (
@@ -1128,7 +1273,7 @@ export default function AgentHubPage({ userSession }: AgentHubPageProps) {
         { label: "기획", description: "공통 코어 입력/초안", scope: "common-core" as const },
         { label: "지원", description: "지원 Agent 연결", scope: "support-agent" as const },
         { label: "심사", description: "심사 Agent 연결", scope: "review-agent" as const },
-        { label: "사전문의", description: "통합마스터 질의응답", scope: "common-core" as const }
+        { label: "사전문의", description: "원본파일 질의응답", scope: "common-core" as const }
       ] satisfies Array<{
         label: AgentTab;
         description: string;
@@ -1143,6 +1288,7 @@ export default function AgentHubPage({ userSession }: AgentHubPageProps) {
         <HeroSection
           userSession={userSession}
           onLogout={() => {
+            clearAuthSession();
             window.location.assign("/");
           }}
         />
@@ -1183,27 +1329,15 @@ export default function AgentHubPage({ userSession }: AgentHubPageProps) {
             ) : null}
 
             {activeTab === "지원" ? (
-              <AgentPreviewCard
-                title="지원 Agent"
-                description="지원 파트는 시스템 반영 화면을 미리 보여주는 단계입니다. 실제 연결된 화면의 구조를 이 탭 안에서 먼저 확인할 수 있습니다."
-              >
-                <SupportAgentPreview />
-              </AgentPreviewCard>
+              <SupportAgentFrame />
             ) : null}
 
-            {activeTab === "심사" ? (
-              <AgentPreviewCard
-                title="심사 Agent"
-                description="심사 파트는 현장공지자료 화면만 보이도록 구성했습니다. 요청하신 심사 Agent 부분만 이 영역에 표시됩니다."
-              >
-                <ReviewAgentPreview />
-              </AgentPreviewCard>
-            ) : null}
+            {activeTab === "심사" ? <ReviewAgentFrame src="/review-agent/index.html" height={3600} /> : null}
 
             {activeTab === "사전문의" ? (
               <AgentPreviewCard
                 title="사전문의 Agent"
-                description="사전문의 파트는 통합 마스터 파일 기준 자연어 질의응답 화면입니다. 관련 근거를 먼저 보여주고, 답변을 채택하면 로컬 히스토리에 저장합니다."
+                description="사전문의 파트는 원본 업로드 파일 기준 자연어 질의응답 화면입니다. 관련 근거를 먼저 보여주고, 답변을 채택하면 로컬 히스토리에 저장합니다."
               >
                 <PreInquiryAgentPreview />
               </AgentPreviewCard>

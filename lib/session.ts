@@ -54,7 +54,25 @@ function writeWindowNameSession(raw: string) {
 
   const state = parseWindowNameSessionState();
   state[AUTH_SESSION_KEY] = raw;
-  window.name = JSON.stringify(state);
+  const nextValue = JSON.stringify(state);
+
+  try {
+    window.name = nextValue;
+  } catch {
+    // ignore and fall through to defineProperty
+  }
+
+  if (window.name !== nextValue) {
+    try {
+      Object.defineProperty(window, "name", {
+        value: nextValue,
+        configurable: true,
+        writable: true
+      });
+    } catch {
+      // best effort fallback
+    }
+  }
 }
 
 function clearWindowNameSession() {
@@ -67,7 +85,25 @@ function clearWindowNameSession() {
     delete state[AUTH_SESSION_KEY];
   }
 
-  window.name = JSON.stringify(state);
+  const nextValue = JSON.stringify(state);
+
+  try {
+    window.name = nextValue;
+  } catch {
+    // ignore and fall through to defineProperty
+  }
+
+  if (window.name !== nextValue) {
+    try {
+      Object.defineProperty(window, "name", {
+        value: nextValue,
+        configurable: true,
+        writable: true
+      });
+    } catch {
+      // best effort fallback
+    }
+  }
 }
 
 export function isLoginAllowedDepartment(department: string) {

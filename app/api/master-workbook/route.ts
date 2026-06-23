@@ -45,6 +45,7 @@ export async function POST(request: Request) {
 
   const snapshot: MasterWorkbookSnapshot = {
     uploadedFiles,
+    sourceFiles: uploadedFiles,
     request: {
       fileName: payload.fileName ?? uploadedFiles[0] ?? "",
       rawInput: "",

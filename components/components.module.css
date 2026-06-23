@@ -1,7 +1,7 @@
 .pageShell {
-  width: min(1280px, calc(100vw - 88px));
+  width: min(1200px, calc(100vw - 72px));
   margin: 0 auto;
-  padding: 40px 0 72px;
+  padding: 56px 0 72px;
 }
 
 .heroGrid {
@@ -117,13 +117,13 @@
 
 .agentHubShell {
   display: grid;
-  gap: 18px;
+  gap: 22px;
 }
 
 .agentHubTabsWrap {
   display: grid;
-  gap: 14px;
-  padding: 18px 20px 20px;
+  gap: 16px;
+  padding: 20px 22px 22px;
   border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(156, 176, 209, 0.72);
@@ -242,8 +242,8 @@
 .agentPreviewHeading {
   margin: 0;
   color: var(--ink);
-  font-size: 22px;
-  line-height: 1.08;
+  font-size: 20px;
+  line-height: 1.1;
   font-weight: 800;
   letter-spacing: -0.03em;
 }
@@ -251,7 +251,7 @@
 .agentPreviewDescription {
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.35;
   white-space: nowrap;
   overflow: hidden;
@@ -261,12 +261,12 @@
 .agentPreviewIcon {
   display: inline-grid;
   place-items: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 18px;
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
   background: linear-gradient(180deg, #7a4df0 0%, #5a35e7 100%);
   color: #fff;
-  font-size: 25px;
+  font-size: 24px;
   box-shadow: 0 10px 22px rgba(90, 53, 231, 0.2);
   flex: 0 0 auto;
 }
@@ -433,13 +433,108 @@
   background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
 }
 
+.reviewAgentWorkspace {
+  display: grid;
+  gap: 18px;
+}
+
+.reviewAgentHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.86fr);
+  gap: 18px 28px;
+  align-items: start;
+  padding: 24px 30px 22px;
+  border-radius: 30px;
+  background: linear-gradient(135deg, var(--navy) 0%, var(--navy-strong) 100%);
+  color: #fff;
+  box-shadow: var(--shadow);
+}
+
+.reviewAgentHeroCopy {
+  max-width: 760px;
+}
+
+.reviewAgentHeroEyebrow {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.reviewAgentHeroTitle {
+  margin: 8px 0 8px;
+  font-size: 46px;
+  line-height: 1.04;
+  letter-spacing: -0.04em;
+}
+
+.reviewAgentHeroDescription {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.reviewAgentMetrics {
+  display: grid;
+  gap: 12px;
+}
+
+.reviewAgentMetricCard {
+  min-height: 72px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.reviewAgentMetricLabel {
+  display: block;
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.reviewAgentMetricValue {
+  display: block;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.reviewAgentPanelHeadingBlock {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.reviewAgentPanelIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  background: #6a38ff;
+  color: #fff;
+  font-size: 24px;
+  flex: none;
+}
+
 .reviewAgentApp {
   display: grid;
-  gap: 16px;
-  padding: 18px;
-  border-radius: 24px;
-  background: #fff;
-  border: 1px solid rgba(156, 176, 209, 0.5);
+  gap: 18px;
+}
+
+.reviewAgentApp > .reviewAgentPanel,
+.reviewAgentApp > .reviewAgentApprovalPanel {
+  margin: 0;
 }
 
 .reviewAgentPanel {
@@ -450,6 +545,31 @@
   background: #fff;
   border: 1px solid rgba(190, 174, 248, 0.62);
   box-shadow: 0 10px 24px rgba(103, 80, 164, 0.08);
+}
+
+.reviewAgentStatusRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(190, 174, 248, 0.42);
+  background: linear-gradient(180deg, #ffffff 0%, #fbf8ff 100%);
+}
+
+.reviewAgentBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #eef3ff;
+  color: #2d5fd2;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .preInquiryAgentApp {
@@ -710,6 +830,63 @@
   gap: 14px;
 }
 
+.reviewAgentApprovalPanel {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border-radius: 22px;
+  background: #fff;
+  border: 1px solid rgba(190, 174, 248, 0.62);
+  box-shadow: 0 10px 24px rgba(103, 80, 164, 0.08);
+}
+
+.reviewAgentApprovalCard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(156, 176, 209, 0.72);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.reviewAgentApprovalTextBlock {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.reviewAgentApprovalTitle {
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.reviewAgentApprovalDesc {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.reviewAgentApprovalButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 160px;
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 14px;
+  border: 0;
+  background: var(--blue);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 .reviewAgentFaqGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -736,6 +913,10 @@
   color: var(--navy);
   font-size: 13px;
   font-weight: 900;
+}
+
+.reviewAgentWorkspace .stepCard {
+  margin-bottom: 0;
 }
 
 .supportAgentApp {
@@ -1524,27 +1705,39 @@
 .stepCard {
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 18px 24px;
+  gap: 8px;
+  padding: 14px 16px;
   margin-bottom: 24px;
+  flex-wrap: nowrap;
+  overflow: auto;
 }
 
 .stepItem {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 7px;
   color: var(--muted);
+  min-width: max-content;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.stepItem > span:last-child {
+  white-space: nowrap;
 }
 
 .stepBullet {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border-radius: 999px;
   background: #edf2fb;
   color: var(--navy);
   font-weight: 700;
+  font-size: 12px;
 }
 
 .stepActive .stepBullet {
@@ -1558,7 +1751,8 @@
 }
 
 .stepDivider {
-  flex: 1;
+  flex: 1 1 30px;
+  min-width: 14px;
   height: 1px;
   background: var(--line);
 }
